@@ -27,13 +27,28 @@ int fe_msgs = 0;
 static int npop = 0, pops[4][4];
 
 /* ---- message history ---------------------------------------------------- */
-EM_JS(void, js_msg, (const char *s), { Module.rp.msg(UTF8ToString(s)); });
+EM_JS(void, js_msg, (const char *s, int fold), { Module.rp.msg(UTF8ToString(s), fold); });
 
 void
 fe_msg(const char *msg)
 {
+	static char prev[81];
+	static int reps;
 	char line[81];
 	int len = strlen(msg), n;
+
+	/* a repeat of the last one-line message becomes "message (xN)",
+	   replacing the page's last line (fold = 1) */
+	/* ponytail: wrapped (over 79 characters) messages don't fold */
+	if (*prev && !strcmp(msg, prev)) {
+		n = snprintf(line, sizeof line, "%s (x%d)", msg, ++reps);
+		if (n < 80) {
+			js_msg(line, 1);
+			return;
+		}
+	}
+	reps = 1;
+	snprintf(prev, sizeof prev, "%s", len < 80 ? msg : "");
 
 	while (len > 0)
 	{
@@ -42,7 +57,7 @@ fe_msg(const char *msg)
 			while (n > 20 && msg[n] != ' ')
 				n--;
 		snprintf(line, sizeof line, "%.*s", n, msg);
-		js_msg(line);
+		js_msg(line, 0);
 		msg += n;
 		len -= n;
 		while (*msg == ' ')

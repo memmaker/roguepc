@@ -473,7 +473,9 @@
 			RvipWM.visible($('vis'), s.replace(/^([MI])([0-9a-f]{2})/gm, function (m, k, h) { return k + cp(parseInt(h, 16)); })
 				.replace(/\t(\d+)$/gm, function (m, c) { return '\t' + PAL[+c]; }));
 		},
-		msg: function (s) {
+		/* fold: the game folded a repeat into "message (xN)", replacing the last line */
+		msg: function (s, fold) {
+			if (fold && hist.length) { hist[hist.length - 1] = s; return; }
 			hist.push(s);
 			if (hist.length > 400) hist.shift();
 		},
