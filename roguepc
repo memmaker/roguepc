@@ -1,0 +1,94 @@
+#!/bin/bash
+#
+# roguepc - Launcher for Rogue PC
+#
+#    Copyright (C) 2015 Rodrigo Silva (MestreLion) <linux@rodrigosilva.com>
+#
+#    This program is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with this program. See <http://www.gnu.org/licenses/gpl.html>
+#
+# Chooses and finds rogue-sdl (for splash) or bare rogue and a suitable terminal
+
+sdl=1
+cmd=
+rogueargs=()
+here=$(dirname "$(readlink -f "$0")")
+
+exists()  { type "$@" >/dev/null 2>&1; }
+
+findcmd() {
+	local bin=rogue${1:+-$1}
+	if [[ "$cmd" ]]; then return; fi
+	if [[ -x "$here"/src/"$bin" ]]; then
+		cmd=$here/src/$bin
+	elif exists "$bin"; then
+		cmd=$bin
+	else
+		return 1
+	fi
+}
+
+usage() {
+	echo "Launch Rogue PC"
+	echo "Usage: ${0##*/} [-h|--help]" \
+		"[-f|--full[-]screen]" \
+		"[-S|--no-splash]" \
+		"[-r|--rogue CMD|PATH]" \
+		"[--] [roguepc args]"
+	exit
+}
+
+# Pre-parse for `help`
+for arg in "$@"; do [[ "$arg" == "-h" || "$arg" == "--help" ]] && usage ; done
+while (( $# )); do
+	case "$1" in
+	-S|--no--splash) sdl=0;;
+	-r|--rogue) shift; cmd=$1;;
+	   --rogue=*) cmd=${1#*=};;
+	--) shift; break;;
+	*) rogueargs+=( "$1" );;
+	esac
+	shift
+done
+rogueargs+=("$@")
+
+
+if ((sdl)); then
+	if findcmd "sdl"; then
+		export ROGUE_PIC=${ROGUE_PIC:-"$here"/src/rogue.pic}
+		if ! exists ldconfig || ! ldconfig -p | grep -q 'SDL2'; then
+			echo "SDL2 library not found, disabling splash screen." \
+				"Install SDL2 to enable it. In Debian/Ubuntu:" \
+				"sudo apt install libsdl2-dev" >&2
+		fi
+	else
+		echo "rogue-sdl not found, disabling splash screen." \
+			"Run 'make sdl' in ./src to enable" >&2
+	fi
+else
+	findcmd
+fi
+
+
+if [[ -z "$cmd" ]] && ! findcmd; then
+	echo "rogue not found. Run 'make' or 'make all' in ./src and try again" >&2
+	exit 1
+fi
+
+if   [[ "$DISPLAY" ]] && exists xterm; then
+	"$here"/roguepc-xterm          --rogue "$cmd" "${rogueargs[@]}"
+elif [[ "$DISPLAY" ]] && exists gnome-terminal; then
+	"$here"/roguepc-gnome-terminal --rogue "$cmd" "${rogueargs[@]}"
+else
+	"$cmd" "${rogueargs[@]}"
+fi

@@ -1,0 +1,74 @@
+#!/bin/bash
+#
+# roguepc-gnome-terminal - Gnome Terminal customization for roguepc
+#
+#    Copyright (C) 2015 Rodrigo Silva (MestreLion) <linux@rodrigosilva.com>
+#
+#    This program is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with this program. See <http://www.gnu.org/licenses/gpl.html>
+#
+# Launches the game in a new Gnome Terminal window using the custom profile
+#------------------------------------------------------------------------------
+
+# default options
+fullscreen=0
+title='Rogue PC'
+profile='RoguePC'
+
+#------------------------------------------------------------------------------
+
+rogueargs=()
+gamecmd=
+for cmd in "$(dirname "$(readlink -f "$0")")"/src/rogue{-sdl,-ascii,}; do
+	if [[ -x "$cmd" ]]; then gamecmd=$cmd; break; fi
+done
+
+usage() {
+	echo "Launch Rogue PC in a new Gnome Terminal window using the custom profile"
+	echo "Usage: ${0##*/} [-h|--help] [-f|--full[-]screen] [-r|--rogue CMD|PATH] [--] [rogue args...]"
+	exit
+}
+
+# Pre-parse for `help`
+for arg in "$@"; do [[ "$arg" == "-h" || "$arg" == "--help" ]] && usage ; done
+
+while (( $# )); do
+	case "$1" in
+	-f|--full-screen|--fullscreen) fullscreen=1;;
+	-r|--rogue      ) shift; gamecmd=$1;;
+	   --rogue=*    )        gamecmd=${1#*=};;
+	--) shift; rogueargs+=( "$@" ); break;;
+	-*) echo "invalid option: $1" >&2; exit 1;;
+	*) rogueargs+=( "$1" );;
+	esac
+	shift
+done
+if [[ -z "$gamecmd" ]]; then
+	echo "No game found, use ${0##.*/} --rogue to set the executable" >&2
+	exit 1
+fi
+
+gtargs=(
+	--profile "$profile"
+	--title "$title"
+	--window
+	--hide-menubar
+	--geometry=80x25
+)
+
+if ((fullscreen)); then
+	gtargs+=(--full-screen)
+fi
+
+cd -- "$(dirname "$(readlink -f "$gamecmd")")" &&
+gnome-terminal "${gtargs[@]}" -- ./"$(basename "$gamecmd")" "${rogueargs[@]}"
