@@ -92,11 +92,32 @@
 		}
 	}
 
+	/* second tile set: DawnHack in full colour, 16x16, same sprite numbers (port/mkdawn.py);
+	   slots it doesn't cover (bolts) keep the Oryx sprite. Per-browser preference. */
+	var dawn = new Image(), dawnHas = [], useDawn = false;
+	try { useDawn = localStorage.getItem('tileset') === 'dawn'; } catch (err) { /* no storage */ }
+	dawn.onload = function () {
+		var cv = document.createElement('canvas'); cv.width = dawn.width; cv.height = dawn.height;
+		var cx = cv.getContext('2d'); cx.drawImage(dawn, 0, 0);
+		var d = cx.getImageData(0, 0, cv.width, cv.height).data;
+		for (var t = 0; t < (cv.width / 16) * (cv.height / 16); t++)
+			dawnHas[t] = d[(((t >> 5) * 16 + 8) * cv.width + (t & 31) * 16 + 8) * 4 + 3] > 0;
+		if (useDawn && L) { applyDom(); }
+	};
+	dawn.src = 'tiles-dawn.png';
+	function dawnOn() { return useDawn && dawnHas.length > 0; }
+	function renderTileset() { $('btn-tileset').textContent = 'Tile set: ' + (useDawn ? 'DawnHack' : 'Oryx'); }
+	function toggleTileset() {
+		useDawn = !useDawn;
+		try { localStorage.setItem('tileset', useDawn ? 'dawn' : 'oryx'); } catch (err) { /* no storage */ }
+		renderTileset(); applyDom();
+	}
 	/* sprite t in CGA colour c, cell w x h */
 	function tile(ctx, t, c, x, y, w, h) {
-		ctx.drawImage(tileSheets[c], (t & 31) * TW, (t >> 5) * TH, TW, TH, x, y, w, h);
+		if (dawnOn() && dawnHas[t]) ctx.drawImage(dawn, (t & 31) * 16, (t >> 5) * 16, 16, 16, x, y, w, h);
+		else ctx.drawImage(tileSheets[c], (t & 31) * TW, (t >> 5) * TH, TW, TH, x, y, w, h);
 	}
-	function cellH() { return L.tile * TH / TW; }
+	function cellH() { return dawnOn() ? L.tile : L.tile * TH / TW; }
 
 	/* ---------- text mode: one window, 80x25 VGA cells ---------- */
 	var textCv, textCtx;
@@ -643,6 +664,8 @@
 		$('btn-layout').onclick = resetLayout;
 		$('btn-tiles').onclick = function () { setMode('tiles'); };
 		$('btn-text').onclick = function () { setMode('text'); };
+		$('btn-tileset').onclick = toggleTileset;
+		renderTileset();
 		$('btn-more').onclick = function () { autoMore = autoMore ? 0 : 1; renderMore(); Module._web_set_auto_more(autoMore); };
 		$('btn-restart').onclick = function () { location.reload(); };
 		document.querySelectorAll('button').forEach(function (b) {

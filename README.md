@@ -150,3 +150,8 @@ So `-r`, `-R`, `/r` and `/R` are all equivalent.
 Enviroment variables:
 - `ROGUE_PIC`: full path to the splash image, by default `rogue.pic` in the _current_ directory.
      Only displayed if using `rogue-sdl` under an SDL2-capable environment such as X11.
+
+**Tile sets (RVIP):** Oryx (ClassicRogue, default) or DawnHack (DragonDePlatino, palette
+DawnBringer, CC BY 3.0, via Rogue Collection's `tilemap_v4.bmp`; `port/mkdawn.py`, credits in
+`port/dawnhack/CREDITS.txt`). *Tile set* button on the web and in the SDL window (`tileset=` in
+`save/roguepc.cfg`); the desktop stretches the 16x16 sprites to its 16x24 cells.

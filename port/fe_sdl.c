@@ -45,6 +45,12 @@ void port_autosave(void);
 static SDL_Window *win;
 static SDL_Renderer *ren;
 static SDL_Texture *font_tex, *tile_tex, *splash_tex;
+/* second tile set: DawnHack, full colour 16x16 (port/mkdawn.py), same sprite numbers;
+   slots it doesn't cover keep the Oryx sprite. Drawn stretched to the TW x TH cell. */
+static SDL_Texture *dawn_tex;
+static unsigned char dawn_has[NTILES];
+static int use_dawn = 0;
+static void load_dawn(void);
 static int tiles_mode = 1, inited = 0, suppress_text = 0, test_mode = 0;
 static int npop = 0, pops[4][4];
 static int hist_scroll = 0;
@@ -107,6 +113,8 @@ load_cfg(void)
 		while (fgets(buf, sizeof buf, f))
 			if (!strncmp(buf, "mode=", 5))
 				tiles_mode = strncmp(buf + 5, "text", 4) != 0;
+			else if (!strncmp(buf, "tileset=", 8))
+				use_dawn = !strncmp(buf + 8, "dawn", 4);
 			else if (!strncmp(buf, "auto_more=", 10))
 				fe_auto_more = buf[10] == '1';
 		fclose(f);
@@ -122,6 +130,7 @@ fe_save_cfg(void)
 	{
 		fprintf(f, "mode=%s\n", tiles_mode ? "tiles" : "text");
 		fprintf(f, "auto_more=%d\n", fe_auto_more);
+		fprintf(f, "tileset=%s\n", use_dawn ? "dawn" : "oryx");
 		fclose(f);
 	}
 }
@@ -181,7 +190,36 @@ fe_init(void)
 	SDL_UpdateTexture(tile_tex, NULL, px, 32 * TW * 4);
 	SDL_SetTextureBlendMode(tile_tex, SDL_BLENDMODE_BLEND);
 	free(px);
+	load_dawn();
 	SDL_StartTextInput();
+}
+
+/* tiles-dawn.rgba: width, height (4 bytes LE each), RGBA; next to the binary */
+static void
+load_dawn(void)
+{
+	const char *p = getenv("ROGUEPC_DAWN");
+	FILE *f = fopen(p ? p : "../port/tiles-dawn.rgba", "rb");
+	unsigned char hd[8], *px;
+	int w, h, t;
+
+	if (!f)
+		return;
+	if (fread(hd, 1, 8, f) == 8 && (w = hd[0] | hd[1] << 8 | hd[2] << 16 | hd[3] << 24) == 32 * 16
+	  && (h = hd[4] | hd[5] << 8 | hd[6] << 16 | hd[7] << 24) > 0 && h <= 64 * 16
+	  && (px = malloc((size_t)w * h * 4)) != NULL)
+	{
+		if (fread(px, 4, (size_t)w * h, f) == (size_t)w * h)
+		{
+			for (t = 0; t < NTILES && t / 32 * 16 < h; t++)	/* covered: alpha in the middle */
+				dawn_has[t] = px[(((t / 32) * 16 + 8) * w + (t % 32) * 16 + 8) * 4 + 3] != 0;
+			dawn_tex = SDL_CreateTexture(ren, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STATIC, w, h);
+			SDL_UpdateTexture(dawn_tex, NULL, px, w * 4);
+			SDL_SetTextureBlendMode(dawn_tex, SDL_BLENDMODE_BLEND);
+		}
+		free(px);
+	}
+	fclose(f);
 }
 
 /* ---- drawing helpers ---------------------------------------------------- */
@@ -234,6 +272,12 @@ tile(int t, int x, int y, int c)
 {
 	SDL_Rect s = { (t % 32) * TW, (t / 32) * TH, TW, TH }, d = { x, y, TW, TH };
 
+	if (use_dawn && dawn_tex && dawn_has[t])
+	{
+		SDL_Rect ds = { (t % 32) * 16, (t / 32) * 16, 16, 16 };
+		SDL_RenderCopy(ren, dawn_tex, &ds, &d);
+		return;
+	}
 	SDL_SetTextureColorMod(tile_tex, pal[c][0], pal[c][1], pal[c][2]);
 	SDL_RenderCopy(ren, tile_tex, &s, &d);
 }
@@ -400,7 +444,7 @@ draw_tiles_screen(void)
 
 /* ---- top bar ------------------------------------------------------------ */
 static SDL_Rect btn_tiles = { W - 200, 4, 90, 24 }, btn_text = { W - 104, 4, 90, 24 };
-static SDL_Rect btn_more = { W - 370, 4, 150, 24 };
+static SDL_Rect btn_more = { W - 370, 4, 150, 24 }, btn_set = { W - 560, 4, 180, 24 };
 
 static void
 button(SDL_Rect *b, const char *label, int active)
@@ -417,6 +461,8 @@ draw_bar(void)
 	text(12, 8, "ROGUE  The Adventure Game", 15, 1);
 	text(270, 8, "Enter: all commands   x: explore   F12: tiles/text", 11, 1);
 	button(&btn_more, fe_auto_more ? "auto_more: on" : "auto_more: off", fe_auto_more);
+	if (dawn_tex)
+		button(&btn_set, use_dawn ? "Tile set: DawnHack" : "Tile set: Oryx", 0);
 	button(&btn_tiles, "Tiles", tiles_mode);
 	button(&btn_text, "Text", !tiles_mode);
 }
@@ -586,6 +632,12 @@ event_key(SDL_Event *ev)
 		if (in(&btn_more, ev->button.x, ev->button.y))
 		{
 			fe_auto_more = !fe_auto_more;
+			fe_save_cfg();
+			fe_present();
+		}
+		else if (dawn_tex && in(&btn_set, ev->button.x, ev->button.y))
+		{
+			use_dawn = !use_dawn;
 			fe_save_cfg();
 			fe_present();
 		}

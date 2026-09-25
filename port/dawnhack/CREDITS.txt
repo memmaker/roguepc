@@ -1,0 +1,4 @@
+tilemap_v4.bmp: DawnHack tiles by DragonDePlatino (palette by DawnBringer),
+licensed CC BY 3.0 (https://creativecommons.org/licenses/by/3.0/), as sheeted
+for PC Rogue 1.48 by Rogue Collection (https://github.com/mikeyk730/Rogue-Collection,
+res/tilemap_v4.bmp, commit bdfffa3). port/mkdawn.py turns it into tiles-dawn.png/.rgba.

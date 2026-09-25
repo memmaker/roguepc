@@ -91,6 +91,7 @@ parts.append(section('web', 'Playing in the browser', WEB))
 # RVIP: About this version (rogue2wasm.md: Source and changes)
 parts.append('<h2 id="h-version">About this version</h2><ul>'
              '<li>Based on <strong>Rogue PC 1.48 (rogue-pc-modern-C)</strong>.</li>'
+             '<li>Map sprites: Oryx (default) or <strong>DawnHack</strong> by DragonDePlatino with DawnBringer\'s palette (CC BY 3.0), as sheeted by <a href="https://github.com/mikeyk730/Rogue-Collection" target="_blank" rel="noopener">Rogue Collection</a>; switch with the <em>Tile set</em> button.</li>'
              '<li>Original source: <a href="https://github.com/memmaker/roguepc/tree/71f524f" target="_blank" rel="noopener">untouched import, commit 71f524f (from the archive rogue-pc-modern-C-main.DOS-Version-1.4.8.zip, sha256 64a41e51177ec62c…; its download source was not recorded)</a></li>'
              '<li>Our changes (port, auto-explore, command menu, web build): '
              '<a href="https://github.com/memmaker/roguepc/compare/71f524f...main" target="_blank" rel="noopener">memmaker/roguepc</a></li></ul>')
