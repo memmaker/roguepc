@@ -148,7 +148,29 @@ tile_for(int y, int x, byte ch, int *under)
 }
 
 /*
- * The inventory pane: one line per pack item, as the game names them
+ * Angband's colour for an item type, as a PC palette index (RVIP W0:
+ * colours come from the game)
+ */
+int
+obj_color(int type)
+{
+	switch (type) {
+	case POTION: return 0x09;
+	case SCROLL: return 0x07;
+	case RING:   return 0x0c;
+	case AMULET: return 0x06;
+	case STICK:  return 0x0a;
+	case FOOD:   return 0x06;
+	case ARMOR:  return 0x06;
+	case WEAPON: return 0x08;
+	case GOLD:   return 0x0e;
+	}
+	return 0x07;
+}
+
+/*
+ * The inventory pane: one line per pack item, as the game names them;
+ * worn and wielded ones bright white
  */
 int
 inv_lines(char lines[][81], byte attrs[], int max)
@@ -165,7 +187,7 @@ inv_lines(char lines[][81], byte attrs[], int max)
 	{
 		snprintf(lines[n], 81, "%c) %s", ch, inv_name(obj, FALSE));
 		attrs[n] = (obj == cur_armor || obj == cur_weapon
-			|| obj == cur_ring[LEFT] || obj == cur_ring[RIGHT]) ? 0x0f : 0x07;
+			|| obj == cur_ring[LEFT] || obj == cur_ring[RIGHT]) ? 0x0f : obj_color(obj->o_type);
 		n++;
 	}
 	memcpy(prbuf, save, MAXSTR);

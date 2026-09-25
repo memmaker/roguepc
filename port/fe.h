@@ -59,6 +59,7 @@ extern THING *inv_pick;
 
 /* tiles.c (knows the game data) */
 int	tile_for(int y, int x, unsigned char ch, int *under);
+int	obj_color(int type);
 int	inv_lines(char lines[][81], unsigned char attrs[], int max);
 
 #ifdef __EMSCRIPTEN__

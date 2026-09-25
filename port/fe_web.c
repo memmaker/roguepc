@@ -160,7 +160,7 @@ send_visible(unsigned short (*scr)[80])
 			p += sprintf(p, "M%02x%.60s\n", tp->t_type, monsters[tp->t_type - 'A'].m_name);
 	for (tp = lvl_obj; tp != NULL && p < e; tp = next(tp))
 		if ((scr[tp->o_pos.y][tp->o_pos.x] & 0xff) == tp->o_type)
-			p += sprintf(p, "I%02x%.80s\n", tp->o_type, inv_name(tp, FALSE));
+			p += sprintf(p, "I%02x%.80s\t%d\n", tp->o_type, inv_name(tp, FALSE), obj_color(tp->o_type));
 	memcpy(prbuf, save, MAXSTR);
 	js_vis(vis);
 }

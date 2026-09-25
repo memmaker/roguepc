@@ -227,8 +227,7 @@
 		if (!rects.inv) return;
 		var P = textPane('inv');
 		if (!F) return;
-		/* coloured by item kind (Angband colours, rvip-wm.js); worn/wielded stay bright white */
-		F.inv.forEach(function (l, i) { line(P, l.s, i * P.ch, l.c === 15 ? 15 : RvipWM.itemColor(l.s.slice(3)) || l.c); });
+		F.inv.forEach(function (l, i) { line(P, l.s, i * P.ch, l.c); });   /* colours from the game */
 	}
 
 	/* ---------- tiles mode: the map ---------- */
@@ -471,7 +470,8 @@
 			lastLevel = lvl;
 		},
 		vis: function (s) {
-			RvipWM.visible($('vis'), s.replace(/^([MI])([0-9a-f]{2})/gm, function (m, k, h) { return k + cp(parseInt(h, 16)); }));
+			RvipWM.visible($('vis'), s.replace(/^([MI])([0-9a-f]{2})/gm, function (m, k, h) { return k + cp(parseInt(h, 16)); })
+				.replace(/\t(\d+)$/gm, function (m, c) { return '\t' + PAL[+c]; }));
 		},
 		msg: function (s) {
 			hist.push(s);
