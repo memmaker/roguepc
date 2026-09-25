@@ -4,8 +4,8 @@
 unpacked with `7z x ClassicRogue.exe`. The game colours each sprite itself.
 Usage: extract.py <.rdata> -> sprites.png (92 sprites, 23 per row, white on transparent)
 Order: 5-30 monsters A-Z, 31 player, 32-39 terrain, 40 door, 41 stairs,
-42 trap, 43 amulet, 44 food, 45 fruit, 46 potion, 47 ring, 48 scroll,
-49-50 staff/wand, 51-59 weapons, 60-67 armour, 68 gold, 70-85 bolts, 86-91 effects."""
+42 trap, 43 amulet, 44 mace, 45 food, 46 potion, 47 ring, 48 scroll,
+49-50 staff/wand, 51-59 other weapons, 60-67 armour, 68 gold, 70-85 bolts, 86-91 effects."""
 import sys
 from PIL import Image
 d = open(sys.argv[1], 'rb').read()

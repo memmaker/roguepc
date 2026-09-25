@@ -265,18 +265,12 @@
 		mapPrev = { v: F.scr.slice(80, 80 + 22 * 80), t: F.t.slice(), u: F.u.slice() };
 	}
 	/* keep the hero in the middle half of the map window */
-	function scrollMap(force) {
+	function scrollMap() {
 		var r = rects.map;
 		if (!r) return;
-		var ch = cellH(), box = { x: r[2] - BORDER, y: r[3] - BORDER - ($('game').classList.contains('wm-single') ? 0 : TITLE_H) }, size = { x: 80 * L.tile, y: 22 * ch };
-		['x', 'y'].forEach(function (a) {
-			var c = (a === 'x' ? hero.x * L.tile + L.tile / 2 : (hero.y - 1) * ch + ch / 2) - off[a];
-			if (size[a] <= box[a]) off[a] = -Math.floor((box[a] - size[a]) / 2);
-			else if (force || c < box[a] / 4 || c > box[a] * 3 / 4)
-				off[a] = clamp(Math.round(c + off[a] - box[a] / 2), 0, size[a] - box[a]);
-		});
-		mapCv.style.marginLeft = -off.x + 'px';
-		mapCv.style.marginTop = -off.y + 'px';
+		var ch = cellH();
+		off = RvipWM.center(mapCv, (hero.x + 0.5) * L.tile, (hero.y - 0.5) * ch, 80 * L.tile, 22 * ch,
+			r[2] - BORDER, r[3] - BORDER - ($('game').classList.contains('wm-single') ? 0 : TITLE_H));
 	}
 
 	/* ---------- tiles mode: pop-up over the map ---------- */
