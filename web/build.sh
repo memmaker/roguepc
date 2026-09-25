@@ -13,6 +13,6 @@ emcc -O2 -std=gnu17 -w -DMINROG -DROGUE_PORT -DROGUE_NO_X11 -DROGUE_CHARSET=2 -I
 	-sALLOW_MEMORY_GROWTH -sEXPORTED_RUNTIME_METHODS=FS,IDBFS,HEAPU8,HEAPU16,HEAP32,HEAPU32,UTF8ToString,addRunDependency,removeRunDependency \
 	-sEXPORTED_FUNCTIONS=_main,_web_set_auto_more \
 	-sFORCE_FILESYSTEM -lidbfs.js -sENVIRONMENT=web -sEXIT_RUNTIME=0
-cp ../web/index.html ../web/roguepc.js tiles-dawn.png "$OUT/"
+cp ../web/index.html ../web/roguepc.js ../web/rvip-wm.js tiles-dawn.png "$OUT/"
 python3 ../web/make-help.py > "$OUT/help.html"
 ls -la "$OUT"

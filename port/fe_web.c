@@ -14,6 +14,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "rogue.h"
+#include "curses.h"
 #include "fe.h"
 #include "vgafont.h"
 #include "tiles.h"
@@ -140,6 +141,30 @@ EM_JS(void, js_tiles, (const void *scr, const void *vr, const int *t, const int 
 	int cr, int cc, int con, int hy, int hx, int lvl),
 	{ Module.rp.tiles(scr, vr, t, u, inv, at, ninv, pr0, pc0, pr1, pc1, cr, cc, con, hy, hx, lvl); });
 
+/* Visible window (rvip-wm.js): "M<hex glyph><name>" per monster and
+ * "I<hex glyph><name>" per item the screen shows (JS maps the CP437 glyph) */
+EM_JS(void, js_vis, (const char *s), { Module.rp.vis(UTF8ToString(s)); });
+static void
+send_visible(unsigned short (*scr)[80])
+{
+	static char vis[8192], save[MAXSTR];
+	char *p = vis, *e = vis + sizeof vis - 100;
+	THING *tp;
+
+	*p = 0;
+	if (prbuf == NULL)
+		return;
+	memcpy(save, prbuf, MAXSTR);
+	for (tp = mlist; tp != NULL && p < e; tp = next(tp))
+		if ((scr[tp->t_pos.y][tp->t_pos.x] & 0xff) == tp->t_type)
+			p += sprintf(p, "M%02x%.60s\n", tp->t_type, monsters[tp->t_type - 'A'].m_name);
+	for (tp = lvl_obj; tp != NULL && p < e; tp = next(tp))
+		if ((scr[tp->o_pos.y][tp->o_pos.x] & 0xff) == tp->o_type)
+			p += sprintf(p, "I%02x%.80s\n", tp->o_type, inv_name(tp, FALSE));
+	memcpy(prbuf, save, MAXSTR);
+	js_vis(vis);
+}
+
 void
 fe_present(void)
 {
@@ -174,6 +199,7 @@ fe_present(void)
 	}
 	else if (!(is_saved && screen_bbox(&r0, &c0, &r1, &c1)))
 		r0 = -1;
+	send_visible(scr);
 	js_tiles(scr, vram, map_t, map_u, inv, inv_at, n, r0, c0, r1, c1,
 		cur_row, cur_col, cur_on, hero.y, hero.x, level);
 }
