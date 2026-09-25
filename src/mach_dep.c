@@ -6,6 +6,9 @@
 
 #include	"rogue.h"
 #include	"curses.h"
+#ifdef ROGUE_PORT
+#include	"fe.h"
+#endif
 
 #ifndef ROGUE_NO_X11
 #include <X11/Xlib.h>
@@ -504,8 +507,12 @@ md_localtime()
 void
 md_nanosleep(long nanoseconds)
 {
+#ifdef __EMSCRIPTEN__
+	emscripten_sleep(nanoseconds / 1000000);  //@ RVIP web: yield to the browser
+#else
 	struct timespec ts = {0, nanoseconds};
 	nanosleep(&ts, NULL);
+#endif
 }
 
 
@@ -917,12 +924,21 @@ void
 fatal(const char *msg, ...)
 {
 	va_list argp;
+#ifdef ROGUE_PORT
+	char buf[256];
 
+	va_start(argp, msg);
+	vsnprintf(buf, sizeof buf, msg, argp);
+	va_end(argp);
+	fputs(buf, stdout);
+	fe_fatal(buf);  //@ RVIP: show it in the window, wait for a key
+#else
 	cur_endwin();
 
 	va_start(argp, msg);
 	vprintf(msg, argp);
 	va_end(argp);
+#endif
 	md_exit(EXIT_SUCCESS);
 }
 
@@ -943,6 +959,9 @@ void md_exit(int status)
 	free_ds();
 #ifdef ROGUE_DEBUG
 	printf("Exited normally\n");
+#endif
+#ifdef __EMSCRIPTEN__
+	port_web_exit();  //@ RVIP web: drop the autosave unless saved, sync IndexedDB
 #endif
 	exit(status);
 }

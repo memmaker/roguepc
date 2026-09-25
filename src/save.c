@@ -42,6 +42,7 @@ char *end_sb = dummier;  /* Pointer to the end of static base */
 char *startmem = dummier + sizeof(dummier);  /* Pointer to the start of static memory */
 
 
+#ifndef ROGUE_PORT  //@ RVIP: save and restore are in savegame.c
 #define MIDSIZE 10
 static char *msaveid = "AI Design";
 
@@ -287,3 +288,4 @@ rok:
 	remove(save_name);
 #endif //DEMO
 }
+#endif  // ROGUE_PORT

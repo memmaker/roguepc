@@ -6,6 +6,9 @@
 
 #include "rogue.h"
 #include "curses.h"
+#ifdef ROGUE_PORT
+#include "fe.h"
+#endif
 
 static int	gethand(void);
 
@@ -91,6 +94,10 @@ ring_off(void)
 		ring = RIGHT;
 	else if (cur_ring[RIGHT] == NULL)
 		ring = LEFT;
+#ifdef ROGUE_PORT
+	else if (inv_pick == cur_ring[LEFT] || inv_pick == cur_ring[RIGHT])
+		ring = inv_pick == cur_ring[LEFT] ? LEFT : RIGHT;  //@ RVIP
+#endif
 	else
 		if ((ring = gethand()) < 0)
 			return;

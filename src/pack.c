@@ -1,5 +1,8 @@
 #include "rogue.h"
 #include "curses.h"
+#ifdef ROGUE_PORT
+#include "fe.h"
+#endif
 
 /*
  * Routines to deal with the pack
@@ -318,6 +321,16 @@ get_item(char *purpose, int type)
 	  && strcmp(purpose,"drop"))) || !strcmp(s_menu,"on"))
 		once_only = TRUE;
 
+#ifdef ROGUE_PORT
+	//@ RVIP: item chosen in the inventory menu
+	if (inv_pick != NULL)
+	{
+		obj = inv_pick;
+		inv_pick = NULL;
+		return obj;
+	}
+	once_only = FALSE;
+#endif
 	gi_state = again;
 	if (pack == NULL)
 		msg("you aren't carrying anything");
@@ -337,11 +350,16 @@ get_item(char *purpose, int type)
 			}
 			if (!terse && !expert)
 				addmsg("which object do you want to ");
+#ifdef ROGUE_PORT
+			msg("%s?",purpose);
+			ch = item_prompt(purpose, type);  //@ RVIP: list with a cursor
+#else
 			msg("%s? (* for list): ",purpose);
 			/*
 			 * ignore any alt characters that may be typed
 			 */
 			ch = readchar();
+#endif
 			skip:
 			mpos = 0;
 			gi_state = FALSE;

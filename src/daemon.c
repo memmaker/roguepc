@@ -175,3 +175,52 @@ do_fuses(void)
 		}
 	}
 }
+
+#ifdef ROGUE_PORT
+void turn_see_off(void);  //@ static-less helper in potions.c
+
+/*@
+ * RVIP save/restore: daemons and fuses are stored by function, as an index
+ * into this table (addresses change between runs)
+ */
+static void (*dfuncs[])() = {
+	NULL, doctor, rollwand, runners, stomach, nohaste, sight, swander,
+	turn_see_off, unconfuse, unsee
+};
+#define NDFUNCS	((int)(sizeof dfuncs / sizeof *dfuncs))
+
+int
+daemon_save(FILE *f)
+{
+	int i, j, v[2];
+
+	for (i = 0; i < MAXDAEMONS; i++)
+	{
+		for (j = 0; j < NDFUNCS; j++)
+			if (dfuncs[j] == d_list[i].d_func)
+				break;
+		if (j == NDFUNCS)
+			j = 0;	/* unknown: drop it */
+		v[0] = j;
+		v[1] = d_list[i].d_time;
+		if (fwrite(v, sizeof v, 1, f) != 1)
+			return FALSE;
+	}
+	return TRUE;
+}
+
+int
+daemon_load(FILE *f)
+{
+	int i, v[2];
+
+	for (i = 0; i < MAXDAEMONS; i++)
+	{
+		if (fread(v, sizeof v, 1, f) != 1 || v[0] < 0 || v[0] >= NDFUNCS)
+			return FALSE;
+		d_list[i].d_func = dfuncs[v[0]];
+		d_list[i].d_time = v[1];
+	}
+	return TRUE;
+}
+#endif

@@ -6,6 +6,9 @@
 
 #include	"rogue.h"
 #include	"curses.h"
+#ifdef ROGUE_PORT
+#include	"fe.h"
+#endif
 
 #define AC(a) (-((a)-11))
 #define PT(i,j) ((COLS==40)?i:j)
@@ -102,6 +105,9 @@ endmsg(void)
 	 */
 	if (is_lower(msgbuf[0]) && msgbuf[1] != ')')
 		msgbuf[0] = toupper(msgbuf[0]);
+#ifdef ROGUE_PORT
+	fe_msg(msgbuf);  //@ RVIP: message history pane
+#endif
 	putmsg(0,msgbuf);
 	mpos = newpos;
 	newpos = 0;
@@ -120,6 +126,12 @@ more(msg)
 	char mbuf[80];
 	int morethere = TRUE;
 	int covered = FALSE;
+
+#ifdef ROGUE_PORT
+	/*@ RVIP auto_more: don't wait, the message history keeps everything */
+	if (fe_auto_more)
+		return;
+#endif
 
 	msz = strlen(msg);
 	getxy(&x,&y);

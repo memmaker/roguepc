@@ -6,6 +6,9 @@
 
 #include	"rogue.h"
 #include	"curses.h"
+#ifdef ROGUE_PORT
+#include	"fe.h"
+#endif
 
 static int lastcount;
 static byte lastch, do_take, lasttake;
@@ -61,7 +64,16 @@ com_char()
 	register byte ch;
 
 	same = (fastmode == faststate);
+#ifdef ROGUE_PORT
+	//@ RVIP: menus, reopened inventory, auto-explore, stair walking
+#ifdef __EMSCRIPTEN__
+	port_web_autosave();
+#endif
+	if ((ch = port_key()) == 0)
+		ch = port_command(readchar());
+#else
 	ch = readchar();
+#endif
 	if (same)
 		fastmode = faststate;
 	else
@@ -199,7 +211,11 @@ execcom()
 			else
 				after = FALSE;
 		when 'Q': after = FALSE; quit();
+#ifdef ROGUE_PORT
+		when 'i': after = FALSE; pending_key = inv_menu();
+#else
 		when 'i': after = FALSE; inventory(pack, 0, "");
+#endif
 		when 'd': drop();
 		when 'q': quaff();
 		when 'r': read_scroll();
@@ -264,6 +280,10 @@ execcom()
 			count = 0;
 			save_msg = TRUE;
 		}
+#ifdef ROGUE_PORT
+		if (ch != 'i')
+			inv_pick = NULL;
+#endif
 		if (take && do_take)
 			pick_up(take);
 		take = 0;

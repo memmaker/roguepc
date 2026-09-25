@@ -9,3 +9,9 @@ refdoc/susv4-2018.tar.bz2
 *.sav
 *.opt
 *.scr
+
+# RVIP port: build output, binaries, local saves
+web/dist/
+save/
+port/roguepc
+*.o

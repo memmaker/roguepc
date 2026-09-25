@@ -7,6 +7,9 @@
 
 #include "rogue.h"
 #include "curses.h"
+#ifdef ROGUE_PORT
+#include "fe.h"
+#endif
 
 #define TREAS_ROOM 20	/* one chance in TREAS_ROOM for a treasure room */
 #define MAXTREAS 10	/* maximum number of treasures in a treasure room */
@@ -23,6 +26,10 @@ new_level(void)
 	int index;
 	coord stairs;
 
+#ifdef ROGUE_PORT
+	fe_ingame = FALSE;  //@ RVIP: text layout while the old level implodes
+	explore_reset();
+#endif
 	player.t_flags &= ~ISHELD;	/* unhold when you go down just in case */
 	/*
 	 * Monsters only get displayed when you move
@@ -124,6 +131,9 @@ new_level(void)
 	oldrp = proom;
 	if (on(player, SEEMONST))
 		turn_see(FALSE);
+#ifdef ROGUE_PORT
+	fe_ingame = TRUE;
+#endif
 }
 
 /*

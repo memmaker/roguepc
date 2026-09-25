@@ -9,7 +9,9 @@
 
 
 //@ turn_see() wrapper to use as a fuse
+#ifndef ROGUE_PORT  //@ RVIP: savegame needs it
 static
+#endif
 void
 turn_see_off(void)
 {
