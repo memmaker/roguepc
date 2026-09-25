@@ -63,7 +63,7 @@ def section(anchor, title, body):
 
 parts = []
 toc = [('about', 'About the game'), ('keys', 'Keyboard controls'), ('saving', 'Saving your game'),
-       ('tips', 'Tips'), ('guide', "New player's guide"), ('web', 'Playing in the browser')]
+       ('tips', 'Tips'), ('guide', "New player's guide"), ('history', 'History & differences'), ('web', 'Playing in the browser')]
 parts.append('<p>' + esc(game['tagline']) + '</p>' + info['About the game'] + '<ul class="toc">' +
              ''.join(f'<li><a href="#h-{a}">{esc(t)}</a></li>' for a, t in toc) + '</ul>')
 
@@ -82,8 +82,10 @@ parts.append(section('keys', 'Keyboard controls',
 
 parts.append(section('saving', 'Saving your game', SAVING))
 parts.append(section('tips', 'Tips', info['Tips']))
+hist = guide.pop('History: where this version fits')   # rogue_history.py (Docs)
 parts.append(section('guide', "New player's guide",
                      ''.join(f'<h3>{esc(t)}</h3>{b}' for t, b in guide.items())))
+parts.append(section('history', 'History & differences', hist))
 parts.append(section('web', 'Playing in the browser', WEB))
 
 # RVIP: About this version (rogue2wasm.md: Source and changes)
