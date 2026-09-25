@@ -20,7 +20,7 @@
 
 int fe_click_row, fe_click_col;
 int fe_ingame = 0;
-int fe_auto_more = 0;
+int fe_auto_more = 1;
 int fe_msgs = 0;
 
 static int npop = 0, pops[4][4];
