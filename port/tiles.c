@@ -52,8 +52,10 @@ wall_tile(int y, int x, byte ch)
 	case LLWALL: return TL_LLWALL;
 	case LRWALL: return TL_LRWALL;
 	case HWALL:  return bottom ? TL_BWALL : TL_TWALL;
+	case ULWALL: return TL_ULWALL;
+	case URWALL: return TL_URWALL;
 	}
-	return TL_TWALL;	/* top corners */
+	return TL_TWALL;
 }
 
 static int
@@ -63,7 +65,7 @@ char_tile(byte ch)
 	{
 	case FLOOR:   return TL_FLOOR;
 	case PASSAGE: return TL_PASSAGE;
-	case DOOR:    return TL_DOOR;
+	case DOOR:    return TL_FLOOR;	/* Rogue doors are just gaps in the wall */
 	case STAIRS:  return TL_STAIRS;
 	case POTION:  return TL_POTION;
 	case SCROLL:  return TL_SCROLL;

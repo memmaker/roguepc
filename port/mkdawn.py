@@ -12,7 +12,7 @@ rc = Image.open(os.path.join(HERE, 'dawnhack', 'tilemap_v4.bmp')).convert('RGBA'
 N = 92
 img = Image.new('RGBA', (32 * 16, (N + 31) // 32 * 16), (0, 0, 0, 0))
 MAP = {5 + i: i for i in range(26)}                   # monsters A-Z
-MAP.update({31: 26, 32: 32, 33: 31, 34: 29, 35: 31, 36: 30,   # player, walls (top corners use the top wall)
+MAP.update({1: 27, 2: 28, 31: 26, 32: 32, 33: 31, 34: 29, 35: 31, 36: 30,   # corners, player, walls
             37: 34, 39: 33, 40: 35, 41: 36, 42: 37, 43: 38, 45: 39, 46: 41,
             47: 42, 48: 43, 49: 44, 50: 44, 68: 40})
 MAP.update({s: 45 for s in [44] + list(range(51, 60))})       # weapons
