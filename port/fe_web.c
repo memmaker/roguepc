@@ -281,7 +281,8 @@ fe_splash(const char *path)
 }
 
 /* ---- input -------------------------------------------------------------- */
-EM_JS(int, js_key, (void), { return Module.rp.key(); });
+extern int fe_at_cmd;
+EM_JS(int, js_key, (int at_cmd), { return Module.rp.key(at_cmd); });
 EM_JS(int, js_click, (void), { return Module.rp.click(); });
 EM_JS(void, js_flush_keys, (void), { Module.rp.flush(); });
 
@@ -294,7 +295,7 @@ fe_getkey(int msdelay)
 	fe_present();	/* the game relies on the wait to show the screen */
 	for (;;)
 	{
-		if ((k = js_key()) >= 0)
+		if ((k = js_key(fe_at_cmd)) >= 0)
 		{
 			if (k == FK_CLICK)
 			{

@@ -205,6 +205,7 @@
 		if (lines.length) lines[lines.length - 1].c = 15;
 		/* the live message line: prompts, --More-- */
 		var live = F && !(F.pop && F.pop[0] === 0) ? rowText(F.vr, 0) : '';
+		RvipWM.prompt.text(live);      /* the prompt line over the map */
 		var last = hist.length ? hist[hist.length - 1] : '';
 		if (live && live.trim() !== last.trim()) lines.push({ s: live, c: 14, live: true });
 		lines = lines.slice(-rows);
@@ -474,7 +475,7 @@
 			if (hist.length > 400) hist.shift();
 		},
 		toggle: function () { setMode(L.mode === 'text' ? 'tiles' : 'text'); },
-		key: function () { return events.length ? events.shift() : -1; },
+		key: function (atCmd) { RvipWM.prompt.wait(atCmd); return events.length ? events.shift() : -1; },
 		click: function () { return clickAt; },
 		pending: function () { return events.length ? 1 : 0; },
 		flush: function () { events.length = 0; },

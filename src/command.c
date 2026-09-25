@@ -57,6 +57,8 @@ command()
 }
 
 //@ No need to declare in rogue.h
+int fe_at_cmd;	/* RVIP: readchar() waits for a command (the web prompt line) */
+
 byte
 com_char()
 {
@@ -70,7 +72,12 @@ com_char()
 	port_web_autosave();
 #endif
 	if ((ch = port_key()) == 0)
-		ch = port_command(readchar());
+	{
+		fe_at_cmd = 1;
+		ch = readchar();
+		fe_at_cmd = 0;
+		ch = port_command(ch);
+	}
 #else
 	ch = readchar();
 #endif
