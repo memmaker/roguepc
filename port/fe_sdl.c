@@ -46,7 +46,7 @@ static SDL_Window *win;
 static SDL_Renderer *ren;
 static SDL_Texture *font_tex, *tile_tex, *splash_tex;
 /* second tile set: DawnHack, full colour 16x16 (port/mkdawn.py), same sprite numbers;
-   slots it doesn't cover keep the Oryx sprite. Drawn stretched to the TW x TH cell. */
+   covers every slot the map uses. Drawn stretched to the TW x TH cell. */
 static SDL_Texture *dawn_tex;
 static unsigned char dawn_has[NTILES];
 static int use_dawn = 0;

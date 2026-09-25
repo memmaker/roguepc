@@ -93,7 +93,7 @@
 	}
 
 	/* second tile set: DawnHack in full colour, 16x16, same sprite numbers (port/mkdawn.py);
-	   slots it doesn't cover (bolts) keep the Oryx sprite. Per-browser preference. */
+	   covers every slot the map uses; never mixed with Oryx. Per-browser preference. */
 	var dawn = new Image(), dawnHas = [], useDawn = false;
 	try { useDawn = localStorage.getItem('tileset') === 'dawn'; } catch (err) { /* no storage */ }
 	dawn.onload = function () {

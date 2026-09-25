@@ -3,8 +3,8 @@
 palette by DawnBringer) as sheeted for PC Rogue 1.48 by Rogue Collection
 (dawnhack/tilemap_v4.bmp: A-Z with slime and ur-vile, player, walls, items).
 Writes tiles-dawn.png/.rgba: 16x16 full-colour sprites, 32 per row, slot =
-ClassicRogue sprite number (mktiles.py); slots it doesn't cover stay
-transparent and the frontends draw the Oryx sprite there (bolts, effects)."""
+ClassicRogue sprite number (mktiles.py). It covers every slot tiles.c can
+return (bolts are drawn as text), so the two sets never mix on the map."""
 import os
 from PIL import Image
 HERE = os.path.dirname(os.path.abspath(__file__))
