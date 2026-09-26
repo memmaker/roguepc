@@ -7,6 +7,7 @@
 
 #include "rogue.h"
 #include "curses.h"
+#include "fe.h"
 
 //@ moved from rogue.h
 #define TOPSCORES	10
@@ -251,6 +252,7 @@ death(char monst)
 	register int year;
 
 	purse -= purse / 10;
+	fe_run_end("death", killname(monst, FALSE), purse);
 
 #ifdef ROGUE_DOS_CURSES
 	switch_page(old_page_no);
@@ -458,6 +460,7 @@ total_winner(void)
 	}
 	move(c - 'a' + 1, 0);
 	printw("   %5u  Gold Pieces          ", oldpurse);
+	fe_run_end("win", NULL, purse);
 	score(purse, 2, 0);
 #endif //DEMO
 	md_exit(EXIT_SUCCESS);

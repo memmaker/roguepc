@@ -31,6 +31,7 @@ void	fe_beep(void);
 void	fe_msg(const char *msg);	/* message history */
 void	fe_splash(const char *path);	/* CGA title picture, NULL = off */
 void	fe_fatal(const char *text);
+void	fe_run_end(const char *ev, const char *killer, int score); /* run-report beacon (web) */
 extern int fe_click_row, fe_click_col;
 extern int fe_auto_more;		/* --More-- doesn't wait */
 extern int fe_ingame;			/* a level is on screen */

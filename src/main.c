@@ -16,6 +16,7 @@
 
 #include "rogue.h"
 #include "curses.h"
+#include "fe.h"
 
 #define is_key(s) ((*s=='-')||(*s=='/'))
 #define is_char(c1,c2) ((c1==c2)||((c1+'a'-'A')==c2))
@@ -266,6 +267,7 @@ quit()
 		clear();
 		move(0,0);
 		printw("You quit with %u gold pieces\n", purse);
+		fe_run_end("quit", NULL, purse);
 		score(purse, 1, 0);
 		fatal("");
 	} else {

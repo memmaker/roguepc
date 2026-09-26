@@ -19,6 +19,22 @@
 #include "vgafont.h"
 #include "tiles.h"
 
+/* Run report (roguelikes-index/server/CONTRACT.md): fire-and-forget GET,
+   never throws, offline just fails silently. Negative ints are omitted. */
+EM_JS(void, js_beacon, (const char *g, const char *ev, const char *name, const char *killer, int depth, int score, int turns, int lvl), {
+    try {
+        var p = [['g', UTF8ToString(g)], ['ev', UTF8ToString(ev)], ['name', name ? UTF8ToString(name) : ''],
+                 ['killer', killer ? UTF8ToString(killer) : ''], ['depth', depth], ['score', score], ['turns', turns], ['lvl', lvl]];
+        var q = p.filter(function (a) { return a[1] !== '' && !(a[1] < 0); })
+                 .map(function (a) { return a[0] + '=' + encodeURIComponent(a[1]); }).join('&');
+        fetch('/roguelikes/beacon?' + q, { keepalive: true, mode: 'no-cors' }).catch(function () {});
+    } catch (e) {}
+});
+void fe_run_end(const char *ev, const char *killer, int score)
+{
+    js_beacon("roguepc", ev, whoami, killer, level, score, -1, pstats.s_lvl);
+}
+
 int fe_click_row, fe_click_col;
 int fe_ingame = 0;
 int fe_auto_more = 1;

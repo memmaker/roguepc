@@ -865,3 +865,5 @@ fe_fatal(const char *msg)
 	while (fe_getkey(-1) == FK_CLICK)
 		;
 }
+
+void fe_run_end(const char *ev, const char *killer, int score) { }
