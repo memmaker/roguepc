@@ -268,14 +268,6 @@ static const struct cmd c_move[] = {
 	{'s', "search for traps and secret doors"},
 	{'.', "rest"},
 	{'f', "<dir> find something (run)"},
-	{'h', "move left (H: run)"},
-	{'j', "move down (J: run)"},
-	{'k', "move up (K: run)"},
-	{'l', "move right (L: run)"},
-	{'y', "move up & left (Y: run)"},
-	{'u', "move up & right (U: run)"},
-	{'b', "move down & left (B: run)"},
-	{'n', "move down & right (N: run)"},
 	{0, 0}
 };
 static const struct cmd c_items[] = {
