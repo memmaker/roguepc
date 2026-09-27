@@ -12,7 +12,6 @@
 	var FONT = '"DejaVu Sans Mono", Menlo, Consolas, "Liberation Mono", monospace';
 	var GUT = 6, TITLE_H = 20, BORDER = 2;
 	var TILE_STEPS = [12, 14, 16, 18, 20, 24, 28, 32, 40, 48, 56, 64];
-	var FONT_MIN = 8, FONT_MAX = 28;
 	var PAL = ['#000000', '#0000aa', '#00aa00', '#00aaaa', '#aa0000', '#aa00aa', '#aa5500', '#aaaaaa',
 		'#555555', '#5555ff', '#55ff55', '#55ffff', '#ff5555', '#ff55ff', '#ffff55', '#ffffff'];
 	var CGA1 = [[0, 0, 0], [0x55, 0xff, 0xff], [0xff, 0x55, 0xff], [0xff, 0xff, 0xff]];
@@ -228,7 +227,7 @@
 		var c = cv.getContext('2d');
 		c.setTransform(dpr, 0, 0, dpr, 0, 0);
 		c.fillStyle = '#000'; c.fillRect(0, 0, w, h);
-		var f = L.font[id];
+		var f = RvipWM.fontSize(id);
 		c.font = f + 'px ' + face(id); c.textBaseline = 'middle';
 		return { c: c, w: w, h: h, cw: measure(f, id), ch: Math.round(f * 1.3) };
 	}
@@ -336,7 +335,7 @@
 		var el = $('pop');
 		if (!F || !F.pop) { el.hidden = true; return; }
 		var p = F.pop, rows = p[2] - p[0] + 1, cols = p[3] - p[1] + 1;
-		var f = L.font.pop, cw = measure(f, 'pop'), ch = Math.round(f * 1.3), pad = cw;
+		var f = RvipWM.fontSize('msg') + 2, cw = measure(f, 'pop'), ch = Math.round(f * 1.3), pad = cw;
 		var w = cols * cw + 2 * pad, h = rows * ch + 2 * pad, cv = el.querySelector('canvas');
 		var A = areaSize(), sc = Math.min(1, (A.w - 16) / w, (A.h - 16) / h);
 		cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
@@ -383,11 +382,11 @@
 	function defaultLayout() {
 		var A = areaSize(), W = A.w, H = A.h;
 		if (W < 400 || H < 300) { W = 1280; H = 720; }
-		var font = W >= 1600 ? 14 : 13, tile = TILE_STEPS[0];
+		var font = 13, tile = TILE_STEPS[0];
 		TILE_STEPS.forEach(function (t) { if (80 * t + BORDER <= W && 22 * t * TH / TW + BORDER <= H * 0.66) tile = t; });
 		var mapH = 22 * tile * TH / TW + BORDER, lower = H - mapH - GUT;
 		var statH = TITLE_H + BORDER + 2 * Math.round(font * 1.3) + 4;
-		return { v: 1, mode: 'tiles', tile: tile, auto: true, font: { msg: font, stat: font, inv: font, pop: font + 2 },
+		return { v: 1, mode: 'tiles', tile: tile, auto: true,
 			split: { bottom: (mapH + GUT / 2) / H, side: 0.5, stat: clamp((lower - statH - GUT / 2) / lower, 0.3, 0.95) }, wm: null };
 	}
 	function loadLayout() {
@@ -399,11 +398,9 @@
 					d.auto = false;
 					if (TILE_STEPS.indexOf(s.tile) >= 0) d.tile = s.tile;
 				}
-				Object.keys(d.font).forEach(function (k) {
-					if (s.font && s.font[k] >= FONT_MIN && s.font[k] <= FONT_MAX) d.font[k] = s.font[k];
-				});
 				if (s.mode === 'text') d.mode = 'text';
 				if (s.wm) d.wm = s.wm;
+				if (s.font && d.wm && !d.wm.fs) { d.wm.fs = {}; ['msg', 'stat', 'inv', 'vis'].forEach(function (k) { if (s.font[k]) d.wm.fs[k] = s.font[k]; }); }   /* old layout: sizes move to the WM */
 				if (typeof s.face === 'string') d.face = s.face;
 				if (typeof s.mapFace === 'string') d.mapFace = s.mapFace;
 			}
@@ -437,7 +434,7 @@
 	 * text mode (the whole 80x25 screen) hides them for #t-text */
 	function makeWM() {
 		var d = defaultLayout().split, A = areaSize();
-		var line = Math.round(L.font.msg * 1.3) + 4, stat = 2 * Math.round(L.font.stat * 1.3) + 4;
+		var line = Math.round(13 * 1.3) + 4, stat = 2 * Math.round(13 * 1.3) + 4;
 		wm = RvipWM({
 			area: $('game'), menu: $('btn-layout'),
 			wins: [{ id: 'map', title: 'Map' }, { id: 'msg', title: 'Messages' }, { id: 'stat', title: 'Status' }, { id: 'inv', title: 'Inventory' }, { id: 'vis', title: 'Visible' }],
@@ -452,17 +449,12 @@
 				place($('t-text'), rects.text);
 				$('btn-tiles').classList.toggle('on', L.mode === 'tiles');
 				$('btn-text').classList.toggle('on', L.mode === 'text');
-				$('vis').style.fontSize = (L.font.vis || 13) + 'px';
 				$('vis').style.fontFamily = L.face ? '"' + L.face + '", monospace' : '';
 				renderMapSel();
 				if (txt) { $('pop').hidden = true; fitText(); drawText(); }
 				else { drawTiles(true); scrollMap(true); drawPop(); }
 			},
-			font: function (id, d) {
-				if (id === 'vis') { L.font.vis = clamp((L.font.vis || 13) + d, FONT_MIN, FONT_MAX); applyDom(); saveLayout(); }
-				else if (id === 'map') zoomMap(d);   /* A-/A+ on the Map title bar: tile size */
-				else zoomText(id, d);
-			},
+			zoom: { map: function (s, d) { zoomMap(d); }, msg: applyDom, stat: applyDom, inv: applyDom },   /* map: tile size; text windows: redraw at the WM's size */
 			onReset: resetLayout
 		});
 	}
@@ -479,11 +471,6 @@
 		applyDom(); saveLayout();
 		status('Map tiles: ' + L.tile + ' px');
 		setTimeout(function () { status(''); }, 1200);
-	}
-	function zoomText(id, d) {
-		L.font[id] = clamp(L.font[id] + d, FONT_MIN, FONT_MAX);
-		L.font.pop = L.font[id] + 2;             /* pop-ups follow the last zoomed window */
-		applyDom(); saveLayout();
 	}
 	function resetLayout() {
 		var m = L.mode, fc = L.face, mf = L.mapFace;
