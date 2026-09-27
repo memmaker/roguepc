@@ -14,5 +14,7 @@ emcc -O2 -std=gnu17 -w -DMINROG -DROGUE_PORT -DROGUE_NO_X11 -DROGUE_CHARSET=2 -I
 	-sEXPORTED_FUNCTIONS=_main,_web_set_auto_more \
 	-sFORCE_FILESYSTEM -lidbfs.js -sENVIRONMENT=web -sEXIT_RUNTIME=0
 cp ../web/index.html ../web/roguepc.js tiles-dawn.png "$OUT/"
+# text fonts: the index page's fonts/ (served at ../fonts/ next to the games)
+(cd ~/Games/roguelikes-index/fonts 2>/dev/null && ls *.woff | sed 's/\.woff$//') | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read().split()))' > "$OUT/fonts.json"
 python3 ../web/make-help.py > "$OUT/help.html"
 ls -la "$OUT"
