@@ -176,11 +176,11 @@ explore_key(void)
 		mode = 0;
 		return 0;
 	}
+	/* arrived: stop here, the player presses the key again to take them */
 	if ((mode == '>' || mode == '<') && chat(hero.y, hero.x) == STAIRS)
 	{
-		k = mode;
 		mode = 0;
-		return k;
+		return 0;
 	}
 	if ((k = path_step()) == 0)
 	{
@@ -197,7 +197,7 @@ explore_key(void)
 		return 0;
 	}
 	cur_refresh();
-	msleep(30);
+	msleep(40);
 	return k;
 }
 
