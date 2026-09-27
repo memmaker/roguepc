@@ -418,7 +418,7 @@
 			wins: [{ id: 'map', title: 'Map' }, { id: 'msg', title: 'Messages' }, { id: 'stat', title: 'Status' }, { id: 'inv', title: 'Inventory' }, { id: 'vis', title: 'Visible' }],
 			multi: { d: 'v', r: d.bottom, a: 'map', b: { d: 'h', r: 0.4, a: { d: 'v', r: d.stat, a: 'msg', b: 'stat' }, b: { d: 'h', r: 0.5, a: 'inv', b: 'vis' } } },
 			single: { d: 'v', r: line / A.h, a: 'msg', b: { d: 'v', r: 1 - stat / (A.h - line), a: 'map', b: 'stat' } },
-			state: L.wm, noFont: 'map',
+			state: L.wm,
 			save: function (st) { L.wm = st; saveLayout(); },
 			layout: function (r) {
 				var A = areaSize(), txt = showText();
@@ -427,13 +427,13 @@
 				place($('t-text'), rects.text);
 				$('btn-tiles').classList.toggle('on', L.mode === 'tiles');
 				$('btn-text').classList.toggle('on', L.mode === 'text');
-				['btn-zoom-in', 'btn-zoom-out'].forEach(function (b) { $(b).disabled = L.mode === 'text'; });
 				$('vis').style.fontSize = (L.font.vis || 13) + 'px';
 				if (txt) { $('pop').hidden = true; fitText(); drawText(); }
 				else { drawTiles(true); scrollMap(true); drawPop(); }
 			},
 			font: function (id, d) {
 				if (id === 'vis') { L.font.vis = clamp((L.font.vis || 13) + d, FONT_MIN, FONT_MAX); applyDom(); saveLayout(); }
+				else if (id === 'map') zoomMap(d);   /* A-/A+ on the Map title bar: tile size */
 				else zoomText(id, d);
 			},
 			onReset: resetLayout
@@ -683,8 +683,7 @@
 		$('btn-new').onclick = newGame;
 		$('btn-help').onclick = toggleHelp;
 		$('help-close').onclick = toggleHelp;
-		$('btn-zoom-in').onclick = function () { zoomMap(1); };
-		$('btn-zoom-out').onclick = function () { zoomMap(-1); };
+		RvipWM.dropdown($('btn-file'), $('menu-file'));
 		$('btn-tiles').onclick = function () { setMode('tiles'); };
 		$('btn-text').onclick = function () { setMode('text'); };
 		$('btn-tileset').onclick = toggleTileset;
