@@ -26,7 +26,7 @@
 	var FK_KP0 = 0x10a, FK_KPDOT = 0x114, FK_KPENTER = 0x115, FK_KPPLUS = 0x116, FK_KPMINUS = 0x117,
 		FK_KPSTAR = 0x118, FK_KPSLASH = 0x119, FK_F1 = 0x11a, FK_ALTF9 = 0x124, FK_CLICK = 0x125;
 
-	var events = [], clickAt = 0, running = false, atCmd = 0;
+	var events = [], clickAt = 0, atCmd = 0, app;
 	var dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
 	var L = null, rects = {};
 	var fontSheets = [], tileSheets = [], tileCol = null;
@@ -40,12 +40,7 @@
 
 	function $(id) { return document.getElementById(id); }
 	function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
-	function status(msg, isError) {
-		var s = $('status');
-		s.textContent = msg;
-		s.className = isError ? 'error' : '';
-		s.hidden = !msg;
-	}
+	function status(msg, isError) { app.status(msg, isError); }
 	function blinkOn() { return ((performance.now() / 229) | 0) & 1; }
 	function curOn() { return ((performance.now() / 115) | 0) & 1; }
 
@@ -116,7 +111,7 @@
 	function tilesetChanged() {
 		var vb = $('vis');
 		if (vb._vis != null) { var v = vb._vis; vb._vis = null; RvipWM.visible(vb, v, visIcon); }
-		if (atCmd && running) events.push(12);
+		if (atCmd && app.running) events.push(12);
 		applyDom();
 	}
 	function toggleTileset() {
@@ -413,7 +408,7 @@
 	function saveLayout() {
 		clearTimeout(saveTimer);
 		saveTimer = setTimeout(function () {
-			try { Module.FS.writeFile(LAYOUT_FILE, JSON.stringify(L)); syncFiles(); }
+			try { Module.FS.writeFile(LAYOUT_FILE, JSON.stringify(L)); app.sync(); }
 			catch (err) { console.warn('layout not saved', err); }
 		}, 400);
 	}
@@ -530,10 +525,10 @@
 		click: function () { return clickAt; },
 		pending: function () { return events.length ? 1 : 0; },
 		flush: function () { events.length = 0; },
-		sync: function () { syncFiles(); },
+		sync: function () { app.sync(); },
 		end: function (saved) {
-			running = false;
-			syncFiles(function () {
+			app.running = false;
+			app.sync(function () {
 				$('overlay-msg').textContent = saved ? 'Your game has been saved. Play again to continue it.' : 'The game is over.';
 				$('overlay').hidden = false;
 			});
@@ -542,18 +537,14 @@
 
 	/* blinking attribute and cursor */
 	setInterval(function () {
-		if (!running || !L) return;
+		if (!app.running || !L) return;
 		if (showText()) drawText();
 		else if (F && F.con) { if (F.cr === 0) drawMsg(); else if (F.pop) drawPop(); }
 	}, 115);
 
 	/* ---------- input ---------- */
 	function onKey(e) {
-		if (!$('help').hidden) {
-			if (e.key === 'Escape') { $('help').hidden = true; e.preventDefault(); }
-			return;
-		}
-		if (!running || e.isComposing || e.metaKey) return;
+		if (!app.running || e.isComposing || e.metaKey) return;
 		var k = e.key, code = e.code || '', m = /^Numpad(\d)$/.exec(code), c;
 		if (k === 'F12') { rp.toggle(); e.preventDefault(); return; }
 		if (m) c = FK_KP0 + +m[1];
@@ -582,7 +573,7 @@
 	}
 	/* a click on a text cell (row, col of the 80x25 screen) */
 	function click(r, c) {
-		if (!running || r < 0 || r > 24 || c < 0 || c > 79) return;
+		if (!app.running || r < 0 || r > 24 || c < 0 || c > 79) return;
 		clickAt = (r << 8) | c;
 		events.push(FK_CLICK);
 	}
@@ -591,60 +582,16 @@
 		return { x: e.clientX - b.left, y: e.clientY - b.top, w: b.width, h: b.height };
 	}
 
-	/* ---------- saves: IndexedDB (IDBFS) ---------- */
-	var syncing = false, syncAgain = false, pendingCbs = [];
-	function syncFiles(cb) {
-		if (!Module.FS) { if (cb) cb(); return; }
-		if (typeof cb === 'function') pendingCbs.push(cb);
-		if (syncing) { syncAgain = true; return; }
-		syncing = true;
-		var cbs = pendingCbs; pendingCbs = [];
-		Module.FS.syncfs(false, function (err) {
-			syncing = false;
-			if (err) status('Saving to browser storage (IndexedDB) failed: ' + err + '. Use "Export save" to keep a copy.', true);
-			cbs.forEach(function (f) { f(err); });
-			if (syncAgain) { syncAgain = false; syncFiles(); }
-		});
-	}
+	/* ---------- saves: IndexedDB (IDBFS), help (../rvip-app.js) ---------- */
 	function hasSave() { try { Module.FS.stat(SAVE); return true; } catch (e) { return false; } }
-	function exportSave() {
-		if (!hasSave()) { status('There is no saved game yet.', true); setTimeout(function () { status(''); }, 2000); return; }
-		var a = document.createElement('a');
-		a.href = URL.createObjectURL(new Blob([Module.FS.readFile(SAVE)], { type: 'application/octet-stream' }));
-		a.download = 'rogue.sav';
-		document.body.appendChild(a); a.click();
-		setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
-	}
-	function importSave(file) {
-		var r = new FileReader();
-		r.onload = function () {
-			if (!confirm('Replace the current game with "' + file.name + '"?')) return;
-			running = false;
-			Module.FS.writeFile(SAVE, new Uint8Array(r.result));
-			syncFiles(function (err) { if (!err) location.reload(); });
-		};
-		r.readAsArrayBuffer(file);
-	}
-	function newGame() {
-		if (!confirm('Delete the saved game in this browser and start a new one?')) return;
-		running = false;
-		if (hasSave()) Module.FS.unlink(SAVE);
-		syncFiles(function (err) { if (!err) location.reload(); });
-	}
-
-	/* ---------- help ---------- */
-	var helpLoaded = false;
-	function toggleHelp() {
-		var h = $('help');
-		h.hidden = !h.hidden;
-		if (!h.hidden && !helpLoaded) {
-			helpLoaded = true;
-			fetch('help.html').then(function (r) { if (!r.ok) throw new Error(r.status); return r.text(); })
-				.then(function (t) { $('help-body').innerHTML = t; })
-				.catch(function (err) { helpLoaded = false; $('help-body').textContent = 'Could not load the guide (' + err + '). Press F1 in the game for its own help.'; });
-		}
-		if (!h.hidden) $('help-body').focus();
-	}
+	app = RvipApp({
+		name: 'roguepc',
+		save: function () { return hasSave() ? SAVE : null; },
+		clear: function () { if (hasSave()) Module.FS.unlink(SAVE); },
+		put: function (file, data) { Module.FS.writeFile(SAVE, data); },
+		exportName: function () { return 'rogue.sav'; },
+		helpText: 'Press F1 in the game for its own help.'
+	});
 
 	/* ---------- startup ---------- */
 	window.Module = {
@@ -663,40 +610,18 @@
 				Module.removeRunDependency('idbfs');
 			});
 		}],
-		onRuntimeInitialized: function () { running = true; status(''); },
+		onRuntimeInitialized: function () { app.running = true; status(''); },
 		print: function (s) { console.log(s); },
 		printErr: function (s) { console.warn(s); },
-		setStatus: function (s) { if (s && !running) status(s.replace(/\(\d+\/\d+\)/, '').trim() || 'Loading…'); },
-		onAbort: function (what) { crashed(what); }
+		setStatus: function (s) { if (s && !app.running) status(s.replace(/\(\d+\/\d+\)/, '').trim() || 'Loading…'); },
+		onAbort: function (what) { app.crashed(what); }
 	};
-	function crashed(err) {
-		if (!running) return;
-		running = false;
-		var msg = (err && (err.message || err.reason && err.reason.message)) || String(err);
-		console.error('[roguepc] crash:', err);
-		status('The game crashed (' + msg + '). Reload the page to continue from the last autosave.', true);
-	}
-	window.addEventListener('unhandledrejection', function (e) {
-		if (e.reason && e.reason.name === 'ExitStatus') return;   /* exit() is the normal end */
-		crashed(e.reason);
-	});
-	window.addEventListener('error', function (e) {
-		if (e.error && e.error.name === 'ExitStatus') return;
-		if (e.error instanceof WebAssembly.RuntimeError || /roguepc-core/.test(e.filename || '')) crashed(e.error || e.message);
-	});
-
 	document.addEventListener('keydown', onKey);
 	document.addEventListener('DOMContentLoaded', function () {
 		mapCv = document.querySelector('#t-map canvas');
 		textCv = document.querySelector('#t-text canvas');
 		textCv.width = 1440; textCv.height = 800;
 		textCtx = textCv.getContext('2d');
-		$('btn-export').onclick = exportSave;
-		$('btn-import').onclick = function () { $('import-file').click(); };
-		$('import-file').onchange = function () { if (this.files[0]) importSave(this.files[0]); this.value = ''; };
-		$('btn-new').onclick = newGame;
-		$('btn-help').onclick = toggleHelp;
-		$('help-close').onclick = toggleHelp;
 		RvipWM.dropdown($('btn-file'), $('menu-file'));
 		fetch('fonts.json').then(function (r) { return r.json(); }).then(function (list) {
 			[[$('sel-font'), 'face'], [mapSel, 'mapFace']].forEach(function (a) {
@@ -728,7 +653,7 @@
 			var P = this.pop, p = canvasXY(this.querySelector('canvas'), e);
 			if (P) click(P.r0 + Math.floor((p.y / P.sc - P.pad) / P.ch), P.c0 + Math.floor((p.x / P.sc - P.pad) / P.cw));
 		});
-		document.addEventListener('contextmenu', function (e) { if (running && e.target.tagName === 'CANVAS') { e.preventDefault(); events.push(27); } });
+		document.addEventListener('contextmenu', function (e) { if (app.running && e.target.tagName === 'CANVAS') { e.preventDefault(); events.push(27); } });
 	});
 	var resizeTimer = 0;
 	window.addEventListener('resize', function () {
