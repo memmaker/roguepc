@@ -27,7 +27,7 @@
 	var FK_KP0 = 0x10a, FK_KPDOT = 0x114, FK_KPENTER = 0x115, FK_KPPLUS = 0x116, FK_KPMINUS = 0x117,
 		FK_KPSTAR = 0x118, FK_KPSLASH = 0x119, FK_F1 = 0x11a, FK_ALTF9 = 0x124, FK_CLICK = 0x125;
 
-	var events = [], clickAt = 0, running = false;
+	var events = [], clickAt = 0, running = false, atCmd = 0;
 	var dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
 	var L = null, rects = {};
 	var fontSheets = [], tileSheets = [], tileCol = null;
@@ -93,31 +93,62 @@
 	}
 
 	/* second tile set: DawnHack in full colour, 16x16, same sprite numbers (port/mkdawn.py);
-	   covers every slot the map uses; never mixed with Oryx. Per-browser preference. */
-	var dawn = new Image(), dawnHas = [], useDawn = false;
-	try { useDawn = localStorage.getItem('tileset') === 'dawn'; } catch (err) { /* no storage */ }
+	   covers every slot the map uses; never mixed with Oryx. Third: None (the
+	   map in text). Per-browser preference. */
+	var TILESETS = ['oryx', 'dawn', 'none'], TSNAME = { oryx: 'Oryx', dawn: 'DawnHack', none: 'None' };
+	var dawn = new Image(), dawnHas = [], tset = 'oryx', useDawn = false;
+	try { tset = localStorage.getItem('tileset') || 'oryx'; } catch (err) { /* no storage */ }
+	if (TILESETS.indexOf(tset) < 0) tset = 'oryx';
+	useDawn = tset === 'dawn';
 	dawn.onload = function () {
 		var cv = document.createElement('canvas'); cv.width = dawn.width; cv.height = dawn.height;
 		var cx = cv.getContext('2d'); cx.drawImage(dawn, 0, 0);
 		var d = cx.getImageData(0, 0, cv.width, cv.height).data;
 		for (var t = 0; t < (cv.width / 16) * (cv.height / 16); t++)
 			dawnHas[t] = d[(((t >> 5) * 16 + 8) * cv.width + (t & 31) * 16 + 8) * 4 + 3] > 0;
-		if (useDawn && L) { applyDom(); }
+		if (tset === 'dawn' && L) tilesetChanged();
 	};
 	dawn.src = 'tiles-dawn.png';
 	function dawnOn() { return useDawn && dawnHas.length > 0; }
-	function renderTileset() { $('btn-tileset').textContent = 'Tile set: ' + (useDawn ? 'DawnHack' : 'Oryx'); }
+	function noTiles() { return tset === 'none'; }
+	function renderTileset() { $('btn-tileset').textContent = 'Tiles: ' + TSNAME[tset]; }
+	/* both lists follow right away: Visible from its cached string, the
+	   Inventory (its rows are the game's) by a ^L at the command prompt */
+	function tilesetChanged() {
+		var vb = $('vis');
+		if (vb._vis != null) { var v = vb._vis; vb._vis = null; RvipWM.visible(vb, v, visIcon); }
+		if (atCmd && running) events.push(12);
+		applyDom();
+	}
 	function toggleTileset() {
-		useDawn = !useDawn;
-		try { localStorage.setItem('tileset', useDawn ? 'dawn' : 'oryx'); } catch (err) { /* no storage */ }
-		renderTileset(); applyDom();
+		tset = TILESETS[(TILESETS.indexOf(tset) + 1) % TILESETS.length];
+		useDawn = tset === 'dawn';
+		try { localStorage.setItem('tileset', tset); } catch (err) { /* no storage */ }
+		renderTileset(); tilesetChanged();
+	}
+	/* a list icon (Inventory, Visible): the sprite at its own aspect ratio,
+	   side x side at most, centred in a w x h box at x,y */
+	function icon(ctx, t, x, y, w, h, side) {
+		var dw = side, dh = side;
+		if (!dawnOn() || !dawnHas[t]) dw = side * TW / TH;
+		ctx.imageSmoothingEnabled = false;
+		tile(ctx, t, tileCol[t], x + (w - dw) / 2, y + (h - dh) / 2, dw, dh);
+	}
+	/* Visible window icon: a 16px canvas, or null (the glyph is shown) */
+	function visIcon(t) {
+		if (noTiles() || !(t >= 0) || !tileCol) return null;
+		var cv = document.createElement('canvas'), c;
+		cv.className = 'wm-ic'; cv.width = 16 * dpr; cv.height = 16 * dpr;
+		c = cv.getContext('2d'); c.scale(dpr, dpr);
+		icon(c, t, 0, 0, 16, 16, 16);
+		return cv;
 	}
 	/* sprite t in CGA colour c, cell w x h */
 	function tile(ctx, t, c, x, y, w, h) {
 		if (dawnOn() && dawnHas[t]) ctx.drawImage(dawn, (t & 31) * 16, (t >> 5) * 16, 16, 16, x, y, w, h);
 		else ctx.drawImage(tileSheets[c], (t & 31) * TW, (t >> 5) * TH, TW, TH, x, y, w, h);
 	}
-	function cellH() { return dawnOn() ? L.tile : L.tile * TH / TW; }
+	function cellH() { return dawnOn() || noTiles() ? L.tile : L.tile * TH / TW; }
 
 	/* ---------- text mode: one window, 80x25 VGA cells ---------- */
 	var textCv, textCtx;
@@ -228,7 +259,11 @@
 		if (!rects.inv) return;
 		var P = textPane('inv');
 		if (!F) return;
-		F.inv.forEach(function (l, i) { line(P, l.s, i * P.ch, l.c); });   /* colours from the game */
+		F.inv.forEach(function (l, i) {                                   /* colours from the game */
+			line(P, l.s, i * P.ch, l.c);
+			/* the game left cols 2-4 blank for the icon */
+			if (l.t >= 0 && !noTiles()) icon(P.c, l.t, 2 + 2 * P.cw, i * P.ch, 3 * P.cw, P.ch, Math.min(2 * P.cw, P.ch));
+		});
 	}
 
 	/* ---------- tiles mode: the map ---------- */
@@ -249,6 +284,7 @@
 		c.textAlign = 'center'; c.textBaseline = 'middle';
 		for (i = 0; i < 22 * 80; i++) {
 			var v = F.scr[80 + i], t = F.t[i], u = F.u[i];
+			if (noTiles() && t !== -2) { t = -1; u = -1; }
 			if (mapPrev && mapPrev.v[i] === v && mapPrev.t[i] === t && mapPrev.u[i] === u) continue;
 			r = (i / 80) | 0; col = i % 80;
 			var x = col * s, y = r * h, a = v >> 8;
@@ -445,12 +481,12 @@
 			if (kind !== 'text') { kind = 'text'; applyDom(); }
 			else drawText();
 		},
-		tiles: function (scr, vr, t, u, inv, at, ninv, pr0, pc0, pr1, pc1, cr, cc, con, hy, hx, lvl) {
+		tiles: function (scr, vr, t, u, inv, at, it, ninv, pr0, pc0, pr1, pc1, cr, cc, con, hy, hx, lvl) {
 			var H = Module.HEAPU8, lines = [];
 			for (var i = 0; i < ninv; i++) {
 				var s = '', o = inv + i * 81;
 				while (H[o] && s.length < 80) s += cp(H[o++]);
-				lines.push({ s: s, c: H[at + i] & 15 });
+				lines.push({ s: s, c: H[at + i] & 15, t: Module.HEAP32[(it >> 2) + i] });
 			}
 			F = { scr: Module.HEAPU16.slice(scr >> 1, (scr >> 1) + 2000), vr: Module.HEAPU16.slice(vr >> 1, (vr >> 1) + 2000),
 				t: Module.HEAP32.slice(t >> 2, (t >> 2) + 1760), u: Module.HEAP32.slice(u >> 2, (u >> 2) + 1760),
@@ -466,7 +502,7 @@
 		},
 		vis: function (s) {
 			RvipWM.visible($('vis'), s.replace(/^([MI])([0-9a-f]{2})/gm, function (m, k, h) { return k + cp(parseInt(h, 16)); })
-				.replace(/\t(\d+)$/gm, function (m, c) { return '\t' + PAL[+c]; }));
+				.replace(/\t(\d+)\t(-?\d+)$/gm, function (m, c, t) { return '\t' + PAL[+c] + '\t' + t; }), visIcon);
 		},
 		/* fold: the game folded a repeat into "message (xN)", replacing the last line */
 		msg: function (s, fold) {
@@ -475,7 +511,8 @@
 			if (hist.length > 400) hist.shift();
 		},
 		toggle: function () { setMode(L.mode === 'text' ? 'tiles' : 'text'); },
-		key: function (atCmd) { RvipWM.prompt.wait(atCmd); return events.length ? events.shift() : -1; },
+		icons: function () { return noTiles() ? 0 : 1; },
+		key: function (a) { atCmd = a; RvipWM.prompt.wait(a); return events.length ? events.shift() : -1; },
 		click: function () { return clickAt; },
 		pending: function () { return events.length ? 1 : 0; },
 		flush: function () { events.length = 0; },

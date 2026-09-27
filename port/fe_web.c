@@ -132,6 +132,7 @@ fe_init(void)
 static int map_t[22 * 80], map_u[22 * 80];
 static char inv[40][81];
 static unsigned char inv_at[40];
+static int inv_t[40];
 static unsigned char splash[320 * 200];
 static int splash_on;
 
@@ -168,12 +169,18 @@ screen_bbox(int *r0, int *c0, int *r1, int *c1)
 EM_JS(void, js_text, (const void *scr, int cr, int cc, int con, const void *pic),
 	{ Module.rp.text(scr, cr, cc, con, pic); });
 EM_JS(void, js_tiles, (const void *scr, const void *vr, const int *t, const int *u,
-	const void *inv, const void *at, int ninv, int pr0, int pc0, int pr1, int pc1,
+	const void *inv, const void *at, const int *it, int ninv, int pr0, int pc0, int pr1, int pc1,
 	int cr, int cc, int con, int hy, int hx, int lvl),
-	{ Module.rp.tiles(scr, vr, t, u, inv, at, ninv, pr0, pc0, pr1, pc1, cr, cc, con, hy, hx, lvl); });
+	{ Module.rp.tiles(scr, vr, t, u, inv, at, it, ninv, pr0, pc0, pr1, pc1, cr, cc, con, hy, hx, lvl); });
+
+int obj_tile(THING *obj);
+
+/* the page shows a tile set (not None): list rows get icons */
+EM_JS(int, js_icons, (void), { return Module.rp.icons(); });
 
 /* Visible window (rvip-wm.js): "M<hex glyph><name>" per monster and
- * "I<hex glyph><name>" per item the screen shows (JS maps the CP437 glyph) */
+ * "I<hex glyph><name>" per item the screen shows (JS maps the CP437 glyph),
+ * then "\t<PC colour>\t<tile>" (tile -1: no icon, the glyph is shown) */
 EM_JS(void, js_vis, (const char *s), { Module.rp.vis(UTF8ToString(s)); });
 static void
 send_visible(unsigned short (*scr)[80])
@@ -181,6 +188,7 @@ send_visible(unsigned short (*scr)[80])
 	static char vis[8192], save[MAXSTR];
 	char *p = vis, *e = vis + sizeof vis - 100;
 	THING *tp;
+	int icons = js_icons();
 
 	*p = 0;
 	if (prbuf == NULL)
@@ -188,10 +196,12 @@ send_visible(unsigned short (*scr)[80])
 	memcpy(save, prbuf, MAXSTR);
 	for (tp = mlist; tp != NULL && p < e; tp = next(tp))
 		if ((scr[tp->t_pos.y][tp->t_pos.x] & 0xff) == tp->t_type)
-			p += sprintf(p, "M%02x%.60s\n", tp->t_type, monsters[tp->t_type - 'A'].m_name);
+			p += sprintf(p, "M%02x%.60s\t%d\t%d\n", tp->t_type, monsters[tp->t_type - 'A'].m_name,
+				(scr[tp->t_pos.y][tp->t_pos.x] >> 8 & 15) ?: 7, icons ? t_mon[tp->t_type - 'A'] : -1);
 	for (tp = lvl_obj; tp != NULL && p < e; tp = next(tp))
 		if ((scr[tp->o_pos.y][tp->o_pos.x] & 0xff) == tp->o_type)
-			p += sprintf(p, "I%02x%.80s\t%d\n", tp->o_type, inv_name(tp, FALSE), obj_color(tp->o_type));
+			p += sprintf(p, "I%02x%.80s\t%d\t%d\n", tp->o_type, inv_name(tp, FALSE), obj_color(tp->o_type),
+				icons ? obj_tile(tp) : -1);
 	memcpy(prbuf, save, MAXSTR);
 	js_vis(vis);
 }
@@ -215,7 +225,7 @@ fe_present(void)
 			i = (r - 1) * 80 + c;
 			map_t[i] = tile_for(r, c, scr[r][c] & 0xff, &map_u[i]);
 		}
-	n = inv_lines(inv, inv_at, 40);
+	n = inv_lines(inv, inv_at, inv_t, 40, js_icons());
 	/* pop-up: the menus' boxes, or a whole text screen over the map */
 	if (npop > 0)
 	{
@@ -231,7 +241,7 @@ fe_present(void)
 	else if (!(is_saved && screen_bbox(&r0, &c0, &r1, &c1)))
 		r0 = -1;
 	send_visible(scr);
-	js_tiles(scr, vram, map_t, map_u, inv, inv_at, n, r0, c0, r1, c1,
+	js_tiles(scr, vram, map_t, map_u, inv, inv_at, inv_t, n, r0, c0, r1, c1,
 		cur_row, cur_col, cur_on, hero.y, hero.x, level);
 }
 

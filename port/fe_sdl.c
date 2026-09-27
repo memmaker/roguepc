@@ -390,7 +390,10 @@ draw_panes(void)
 			first + i == nhist - 1 ? 15 : 7, 1);
 
 	pane_title(721, "Inventory");
-	n = inv_lines(inv, at, 40);
+	{
+		int t[40];
+		n = inv_lines(inv, at, t, 40, 0);
+	}
 	for (i = 0; i < n; i++)
 	{
 		char buf[80];
