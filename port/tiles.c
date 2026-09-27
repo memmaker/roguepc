@@ -168,6 +168,14 @@ obj_color(int type)
 	return 0x07;
 }
 
+/* an inventory row's colour: worn and wielded bright white, else the type's */
+int
+inv_attr(THING *obj)
+{
+	return (obj == cur_armor || obj == cur_weapon
+		|| obj == cur_ring[LEFT] || obj == cur_ring[RIGHT]) ? 0x0f : obj_color(obj->o_type);
+}
+
 /*
  * The inventory pane: one line per pack item, as the game names them;
  * worn and wielded ones bright white. With icons (a tile set is shown) the
@@ -192,8 +200,7 @@ inv_lines(char lines[][81], byte attrs[], int tiles[], int max, int icons)
 		else
 			snprintf(lines[n], 81, "%c) %c %s", ch, obj->o_type, inv_name(obj, FALSE));
 		tiles[n] = icons ? obj_tile(obj) : -1;
-		attrs[n] = (obj == cur_armor || obj == cur_weapon
-			|| obj == cur_ring[LEFT] || obj == cur_ring[RIGHT]) ? 0x0f : obj_color(obj->o_type);
+		attrs[n] = inv_attr(obj);
 		n++;
 	}
 	memcpy(prbuf, save, MAXSTR);

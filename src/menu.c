@@ -29,6 +29,7 @@ struct menu {
 	int n;
 	const char *label[MAXITEMS_M];
 	int key[MAXITEMS_M];		/* key shown in front, 0 = none */
+	byte fg[MAXITEMS_M];		/* label colour (0 = plain text) */
 	int cur;
 	int row, col;			/* top left; col -1 = centred */
 	bool keep;			/* stay on screen after a choice */
@@ -177,7 +178,7 @@ menu_run(struct menu *m, bool (*takes)(int key))
 					puts_at(r, c, keyname(m->key[it]), it == m->cur ? A_CURSOR : A_KEY, kw);
 				c += kw + 1;
 			}
-			puts_at(r, c, m->label[it], a, w - (c - c0 - 2));
+			puts_at(r, c, m->label[it], it != m->cur && m->fg[it] ? m->fg[it] : a, w - (c - c0 - 2));
 		}
 		cursor(FALSE);
 		fe_present();
@@ -497,6 +498,8 @@ monster_near(void)
 /*
  * 'i': returns the command to run (with inv_pick set) or 0
  */
+int inv_attr(THING *obj);
+
 byte
 inv_menu(void)
 {
@@ -519,6 +522,7 @@ inv_menu(void)
 			items[n] = obj;
 			m.label[n] = lines[n];
 			m.key[n] = pack_char(obj);
+			m.fg[n] = inv_attr(obj);	/* the Inventory pane's colours */
 			n++;
 		}
 		if (n == 0)
@@ -612,6 +616,7 @@ item_prompt(char *purpose, int type)
 			snprintf(lines[n], sizeof lines[n], "%.70s", inv_name(obj, FALSE));
 			m.label[n] = lines[n];
 			m.key[n] = pack_char(obj);
+			m.fg[n] = inv_attr(obj);	/* the Inventory pane's colours */
 			n++;
 		}
 		if (n == 0 && !all)
