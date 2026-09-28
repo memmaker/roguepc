@@ -36,7 +36,7 @@ WEB = '''<ul>
 <li><strong>Windows ▾ → One window</strong> (or <kbd>F12</kbd>) shows the original IBM PC text screen: VGA font, CP437 symbols, CGA colours. <em>Multi-window</em> brings the tiled windows back.</li>
 <li><strong>Tiles windows:</strong> the map on top; Messages (with history) and Status below on the left; Inventory on the right. Lists and menus pop up over the map.</li>
 <li><strong>Resize windows</strong> by dragging the gaps between them. <em>Reset windows</em> puts everything back.</li>
-<li><strong>Zoom:</strong> <em>Zoom −</em> / <em>Zoom +</em> change the size of the map tiles; when the map is bigger than its window it scrolls to follow you. Hover over a text window's title to show its <em>A−</em> / <em>A+</em> buttons.</li>
+<li><strong>Zoom:</strong> <em>A−</em> / <em>A+</em> on the Map title bar (shown on hover) change the size of the map tiles; when the map is bigger than its window it scrolls to follow you. Hover over a text window's title to show its <em>A−</em> / <em>A+</em> buttons.</li>
 <li><strong>auto_more</strong> is on: --More-- prompts are skipped and everything stays in the Messages window. The game's own menu (<kbd>Enter</kbd>) turns it off.</li>
 <li><strong>Keys:</strong> <kbd>h</kbd><kbd>j</kbd><kbd>k</kbd><kbd>l</kbd><kbd>y</kbd><kbd>u</kbd><kbd>b</kbd><kbd>n</kbd>, the arrow keys or the numeric keypad move you; capital letters run. The F-keys work as in the original (<kbd>F1</kbd> help).</li>
 <li>Browsers keep a few shortcuts for themselves (<kbd>Ctrl+W</kbd>, <kbd>Ctrl+T</kbd>, <kbd>Ctrl+N</kbd>, and <kbd>Cmd</kbd> shortcuts on a Mac), so those never reach the game.</li>
