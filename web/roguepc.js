@@ -86,23 +86,40 @@
 		}
 	}
 
-	/* second tile set: DawnHack in full colour, 16x16, same sprite numbers (port/mkdawn.py);
-	   covers every slot the map uses; never mixed with Oryx. Third: None (the
-	   map in text). Per-browser preference. */
-	var TILESETS = ['oryx', 'dawn', 'none'], TSNAME = { oryx: 'Oryx', dawn: 'DawnHack', none: 'None' };
-	var dawn = new Image(), dawnHas = [], tset = 'oryx', useDawn = false;
-	try { tset = localStorage.getItem('tileset') || 'oryx'; } catch (err) { /* no storage */ }
-	if (TILESETS.indexOf(tset) < 0) tset = 'oryx';
-	useDawn = tset === 'dawn';
+	/* second tile set: DawnLike in full colour, 16x16, same sprite numbers (port/mkdawn.py);
+	   covers every slot the map uses; never mixed with Oryx. DawnLike|a animates
+	   the map with DawnLike's second frame. Last: None (the map in text). The
+	   choice is kept in the layout file (IndexedDB) */
+	var TILESETS = ['oryx', 'dawn', 'dawna', 'none'], TSNAME = { oryx: 'Oryx', dawn: 'DawnLike', dawna: 'DawnLike|a', none: 'None' };
+	var dawn = new Image(), dawn1 = new Image(), dawnHas = [], tset = 'oryx', useDawn = false, frame = 0, anim = null, onMap = false;
 	dawn.onload = function () {
 		var cv = document.createElement('canvas'); cv.width = dawn.width; cv.height = dawn.height;
 		var cx = cv.getContext('2d'); cx.drawImage(dawn, 0, 0);
 		var d = cx.getImageData(0, 0, cv.width, cv.height).data;
 		for (var t = 0; t < (cv.width / 16) * (cv.height / 16); t++)
 			dawnHas[t] = d[(((t >> 5) * 16 + 8) * cv.width + (t & 31) * 16 + 8) * 4 + 3] > 0;
-		if (tset === 'dawn' && L) tilesetChanged();
+		if (useDawn && L) tilesetChanged();
 	};
 	dawn.src = 'tiles-dawn.png';
+	dawn1.src = 'tiles-dawn-1.png';
+	function setTileset(t) { tset = TILESETS.indexOf(t) >= 0 ? t : 'oryx'; useDawn = tset === 'dawn' || tset === 'dawna'; frame = 0; }
+	/* DawnLike|a: twice a second the map draws from the frame-1 sheet; only the
+	   cells whose sprite (or the floor under it) differs between the frames */
+	function findAnim() {
+		var px = function (im) { var c = document.createElement('canvas'); c.width = im.naturalWidth; c.height = im.naturalHeight; var x = c.getContext('2d'); x.drawImage(im, 0, 0); return x.getImageData(0, 0, c.width, c.height).data; };
+		var a = px(dawn), b = px(dawn1), W = dawn.naturalWidth, n = (W / 16) * (dawn.naturalHeight / 16);
+		anim = new Uint8Array(n);
+		for (var t = 0; t < n; t++)
+			for (var y = 0, x0 = (t & 31) * 16, y0 = (t >> 5) * 16; y < 16 && !anim[t]; y++)
+				for (var i = ((y0 + y) * W + x0) * 4, e = i + 64; i < e; i++) if (a[i] !== b[i]) { anim[t] = 1; break; }
+	}
+	setInterval(function () {
+		if (tset !== 'dawna' || !dawnHas.length || !dawn1.naturalWidth || document.hidden || !mapPrev) return;
+		if (!anim) findAnim();
+		frame ^= 1;
+		for (var i = 0; i < 22 * 80; i++) if (anim[mapPrev.t[i]] || anim[mapPrev.u[i]]) mapPrev.t[i] = -99;   /* stale: redraw */
+		drawMap();
+	}, 500);
 	function dawnOn() { return useDawn && dawnHas.length > 0; }
 	function noTiles() { return tset === 'none'; }
 	function renderTileset() { $('btn-tileset').textContent = 'Tiles: ' + TSNAME[tset]; }
@@ -116,8 +133,8 @@
 	}
 	function toggleTileset() {
 		tset = TILESETS[(TILESETS.indexOf(tset) + 1) % TILESETS.length];
-		useDawn = tset === 'dawn';
-		try { localStorage.setItem('tileset', tset); } catch (err) { /* no storage */ }
+		setTileset(tset);
+		L.tiles = tset; saveLayout();
 		renderTileset(); renderMapSel(); tilesetChanged();
 	}
 	/* map font chooser: on the Map title bar (shown on hover), with Tiles: None only */
@@ -158,7 +175,7 @@
 	}
 	/* sprite t in CGA colour c, cell w x h */
 	function tile(ctx, t, c, x, y, w, h) {
-		if (dawnOn() && dawnHas[t]) ctx.drawImage(dawn, (t & 31) * 16, (t >> 5) * 16, 16, 16, x, y, w, h);
+		if (dawnOn() && dawnHas[t]) ctx.drawImage(onMap && frame && dawn1.naturalWidth ? dawn1 : dawn, (t & 31) * 16, (t >> 5) * 16, 16, 16, x, y, w, h);
 		else ctx.drawImage(tileSheets[c], (t & 31) * TW, (t >> 5) * TH, TW, TH, x, y, w, h);
 	}
 	function cellH() { return noTiles() ? mapTxt().h : dawnOn() ? L.tile : L.tile * TH / TW; }
@@ -305,6 +322,7 @@
 		var s = L.tile, h = cellH(), c = mapCtx, i, r, col;
 		c.font = (L.mapFace ? '' : 'bold ') + (noTiles() ? mapTxt().f : Math.round(s * 0.9)) + 'px ' + face('map');   /* bitmap fonts: not bold */
 		c.textAlign = 'center'; c.textBaseline = 'middle';
+		onMap = true;   /* tile(): the animation frame applies to the map only */
 		for (i = 0; i < 22 * 80; i++) {
 			var v = F.scr[80 + i], t = F.t[i], u = F.u[i];
 			if (noTiles() && t !== -2) { t = -1; u = -1; }
@@ -322,6 +340,7 @@
 				if (g && g !== 32) { c.fillStyle = PAL[a & 15]; c.fillText(cp(g), x + s / 2, y + h / 2 + 1); }
 			}
 		}
+		onMap = false;
 		mapPrev = { v: F.scr.slice(80, 80 + 22 * 80), t: F.t.slice(), u: F.u.slice() };
 	}
 	/* keep the hero in the middle half of the map window */
@@ -403,6 +422,7 @@
 				if (s.font && d.wm && !d.wm.fs) { d.wm.fs = {}; ['msg', 'stat', 'inv', 'vis'].forEach(function (k) { if (s.font[k]) d.wm.fs[k] = s.font[k]; }); }   /* old layout: sizes move to the WM */
 				if (typeof s.face === 'string') d.face = s.face;
 				if (typeof s.mapFace === 'string') d.mapFace = s.mapFace;
+				if (typeof s.tiles === 'string') d.tiles = s.tiles;   /* the tile set */
 			}
 		} catch (err) { /* nothing saved yet */ }
 		L = d;
@@ -465,8 +485,8 @@
 		setTimeout(function () { status(''); }, 1200);
 	}
 	function resetLayout() {
-		var fc = L.face, mf = L.mapFace;
-		L = defaultLayout(); L.face = fc; L.mapFace = mf; L.wm = wm.state();
+		var fc = L.face, mf = L.mapFace, ts = L.tiles;
+		L = defaultLayout(); L.face = fc; L.mapFace = mf; L.tiles = ts; L.wm = wm.state();
 		applyDom(); saveLayout();
 	}
 
@@ -599,6 +619,7 @@
 				if (err) status('Could not read saved games from IndexedDB (' + err + '). Saving may not work in this browser mode.', true);
 				if (hasSave()) Module.arguments.push('-r');
 				loadLayout();
+				setTileset(L.tiles); renderTileset();
 				Module.removeRunDependency('idbfs');
 			}, { dir: '/save', files: ['rogue.sav', 'web-layout.json'] });
 			FS.chdir(DIR);
