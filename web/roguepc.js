@@ -8,7 +8,7 @@
 (function () {
 	'use strict';
 
-	var DIR = '/save', SAVE = DIR + '/rogue.sav', LAYOUT_FILE = DIR + '/web-layout.json';
+	var DIR = RvipApp.dir, SAVE = DIR + '/rogue.sav', LAYOUT_FILE = DIR + '/web-layout.json';
 	var FONT = '"DejaVu Sans Mono", Menlo, Consolas, "Liberation Mono", monospace';
 	var GUT = 6, TITLE_H = 20, BORDER = 2;
 	var TILE_STEPS = [12, 14, 16, 18, 20, 24, 28, 32, 40, 48, 56, 64];
@@ -599,16 +599,15 @@
 		arguments: [],
 		preRun: [function () {
 			var FS = Module.FS;
-			FS.mkdirTree(DIR);
-			FS.mount(Module.IDBFS, {}, DIR);
-			FS.chdir(DIR);
 			Module.addRunDependency('idbfs');
-			FS.syncfs(true, function (err) {
+			/* until 2026-09 roguepc used the '/save' database, shared with omega */
+			RvipApp.mount(function (err) {
 				if (err) status('Could not read saved games from IndexedDB (' + err + '). Saving may not work in this browser mode.', true);
 				if (hasSave()) Module.arguments.push('-r');
 				loadLayout();
 				Module.removeRunDependency('idbfs');
-			});
+			}, { dir: '/save', files: ['rogue.sav', 'web-layout.json'] });
+			FS.chdir(DIR);
 		}],
 		onRuntimeInitialized: function () { app.running = true; status(''); },
 		print: function (s) { console.log(s); },
