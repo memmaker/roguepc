@@ -161,7 +161,15 @@
 		if (dawnOn() && dawnHas[t]) ctx.drawImage(dawn, (t & 31) * 16, (t >> 5) * 16, 16, 16, x, y, w, h);
 		else ctx.drawImage(tileSheets[c], (t & 31) * TW, (t >> 5) * TH, TW, TH, x, y, w, h);
 	}
-	function cellH() { return dawnOn() || noTiles() ? L.tile : L.tile * TH / TW; }
+	function cellH() { return noTiles() ? mapTxt().h : dawnOn() ? L.tile : L.tile * TH / TW; }
+	/* Tiles: None: the map font sized so one character is a cell (L.tile) wide,
+	   rows as tall as the font's own line */
+	function mapTxt() {
+		var c = document.createElement('canvas').getContext('2d'), m;
+		c.font = '100px ' + face('map'); m = c.measureText('M');
+		var f = Math.round(100 * L.tile / m.width);
+		return { f: f, h: Math.round(f * ((m.fontBoundingBoxAscent + m.fontBoundingBoxDescent) / 100 || 1.2)) };
+	}
 
 	/* ---------- text mode: one window, 80x25 VGA cells ---------- */
 	var textCv, textCtx;
@@ -295,7 +303,7 @@
 	function drawMap() {
 		if (!F) return;
 		var s = L.tile, h = cellH(), c = mapCtx, i, r, col;
-		c.font = (L.mapFace ? '' : 'bold ') + Math.round(s * 0.9) + 'px ' + face('map');   /* bitmap fonts: not bold */
+		c.font = (L.mapFace ? '' : 'bold ') + (noTiles() ? mapTxt().f : Math.round(s * 0.9)) + 'px ' + face('map');   /* bitmap fonts: not bold */
 		c.textAlign = 'center'; c.textBaseline = 'middle';
 		for (i = 0; i < 22 * 80; i++) {
 			var v = F.scr[80 + i], t = F.t[i], u = F.u[i];
@@ -381,7 +389,7 @@
 		TILE_STEPS.forEach(function (t) { if (80 * t + BORDER <= W && 22 * t * TH / TW + BORDER <= H * 0.66) tile = t; });
 		var mapH = 22 * tile * TH / TW + BORDER, lower = H - mapH - GUT;
 		var statH = TITLE_H + BORDER + 2 * Math.round(font * 1.3) + 4;
-		return { v: 1, mode: 'tiles', tile: tile, auto: true,
+		return { v: 1, tile: tile, auto: true, mapFace: 'WebPlus_IBM_VGA_9x16',
 			split: { bottom: (mapH + GUT / 2) / H, side: 0.5, stat: clamp((lower - statH - GUT / 2) / lower, 0.3, 0.95) }, wm: null };
 	}
 	function loadLayout() {
@@ -393,7 +401,6 @@
 					d.auto = false;
 					if (TILE_STEPS.indexOf(s.tile) >= 0) d.tile = s.tile;
 				}
-				if (s.mode === 'text') d.mode = 'text';
 				if (s.wm) d.wm = s.wm;
 				if (s.font && d.wm && !d.wm.fs) { d.wm.fs = {}; ['msg', 'stat', 'inv', 'vis'].forEach(function (k) { if (s.font[k]) d.wm.fs[k] = s.font[k]; }); }   /* old layout: sizes move to the WM */
 				if (typeof s.face === 'string') d.face = s.face;
@@ -416,7 +423,7 @@
 		el.style.left = r[0] + 'px'; el.style.top = r[1] + 'px';
 		el.style.width = Math.max(0, r[2]) + 'px'; el.style.height = Math.max(0, r[3]) + 'px';
 	}
-	function showText() { return L.mode === 'text' || kind === 'text'; }
+	function showText() { return kind === 'text' || (wm && wm.mode() === 'single'); }
 
 	/* place the windows for the current mode and redraw everything */
 	function applyDom() {
@@ -442,8 +449,6 @@
 				rects = r; rects.text = [0, 0, A.w, A.h];
 				$('t-text').hidden = !txt;
 				place($('t-text'), rects.text);
-				$('btn-tiles').classList.toggle('on', L.mode === 'tiles');
-				$('btn-text').classList.toggle('on', L.mode === 'text');
 				$('vis').style.fontFamily = L.face ? '"' + L.face + '", monospace' : '';
 				renderMapSel();
 				if (txt) { $('pop').hidden = true; fitText(); drawText(); }
@@ -452,12 +457,6 @@
 			zoom: { map: function (s, d) { zoomMap(d); }, msg: applyDom, stat: applyDom, inv: applyDom },   /* map: tile size; text windows: redraw at the WM's size */
 			onReset: resetLayout
 		});
-	}
-	function setMode(m) {
-		if (!L || L.mode === m) return;
-		L.mode = m;
-		if (m === 'text' && F) T = { scr: F.vr, cr: F.cr, cc: F.cc, con: F.con, pic: null };
-		applyDom(); saveLayout();
 	}
 
 	function zoomMap(d) {
@@ -468,18 +467,15 @@
 		setTimeout(function () { status(''); }, 1200);
 	}
 	function resetLayout() {
-		var m = L.mode, fc = L.face, mf = L.mapFace;
-		L = defaultLayout(); L.mode = m; L.face = fc; L.mapFace = mf; L.wm = wm.state();
+		var fc = L.face, mf = L.mapFace;
+		L = defaultLayout(); L.face = fc; L.mapFace = mf; L.wm = wm.state();
 		applyDom(); saveLayout();
 	}
 
 	/* ---------- called by the game (port/fe_web.c) ---------- */
-	var autoMore = 0;
-	function renderMore() { $('btn-more').textContent = 'auto_more: ' + (autoMore ? 'on' : 'off'); $('btn-more').classList.toggle('on', !!autoMore); }
 	var rp = {
 		init: function (font, tiles, cols, ntiles, am) {
 			buildSheets(font, tiles, cols, ntiles);
-			autoMore = am; renderMore();
 			if (!L) loadLayout();
 			$('game').hidden = false;
 			applyDom();
@@ -519,7 +515,7 @@
 			hist.push(s);
 			if (hist.length > 400) hist.shift();
 		},
-		toggle: function () { setMode(L.mode === 'text' ? 'tiles' : 'text'); },
+		toggle: function () { if (wm) wm.mode(wm.mode() === 'single' ? 'multi' : 'single'); },
 		icons: function () { return noTiles() ? 0 : 1; },
 		key: function (a) { atCmd = a; RvipWM.prompt.wait(a); return events.length ? events.shift() : -1; },
 		click: function () { return clickAt; },
@@ -631,11 +627,8 @@
 		[[$('sel-font'), 'face'], [mapSel, 'mapFace']].forEach(function (a) {
 			a[0].onchange = function () { if (!L) return; L[a[1]] = this.value; saveLayout(); loadFace(this.value, true); this.blur(); };
 		});
-		$('btn-tiles').onclick = function () { setMode('tiles'); };
-		$('btn-text').onclick = function () { setMode('text'); };
 		$('btn-tileset').onclick = toggleTileset;
 		renderTileset();
-		$('btn-more').onclick = function () { autoMore = autoMore ? 0 : 1; renderMore(); Module._web_set_auto_more(autoMore); };
 		$('btn-restart').onclick = function () { location.reload(); };
 		document.querySelectorAll('button').forEach(function (b) {
 			b.addEventListener('mousedown', function (e) { e.preventDefault(); });

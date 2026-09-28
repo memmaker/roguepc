@@ -39,13 +39,16 @@ room_at(int y, int x)
 	return NULL;
 }
 
-/* walls are drawn in 3/4 view: the bottom row shows its brick face */
+/* walls are drawn in 3/4 view: the bottom row, and any wall above floor
+   or a door, shows its brick face */
 static int
 wall_tile(int y, int x, byte ch)
 {
 	struct room *rp = room_at(y, x);
 	int bottom = rp ? y == rp->r_pos.y + rp->r_max.y - 1 : ch == LLWALL || ch == LRWALL;
 
+	if (y + 1 < maxrow && (chat(y + 1, x) == FLOOR || chat(y + 1, x) == DOOR))
+		return TL_BWALL;
 	switch (ch)
 	{
 	case VWALL:  return TL_VWALL;
