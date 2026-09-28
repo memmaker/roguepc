@@ -45,7 +45,7 @@ void port_autosave(void);
 static SDL_Window *win;
 static SDL_Renderer *ren;
 static SDL_Texture *font_tex, *tile_tex, *splash_tex;
-/* second tile set: DawnHack, full colour 16x16 (port/mkdawn.py), same sprite numbers;
+/* second tile set: DawnLike, full colour 16x16 (port/mkdawn.py), same sprite numbers;
    covers every slot the map uses. Drawn stretched to the TW x TH cell. */
 static SDL_Texture *dawn_tex;
 static unsigned char dawn_has[NTILES];
@@ -465,7 +465,7 @@ draw_bar(void)
 	text(270, 8, "Enter: all commands   x: explore   F12: tiles/text", 11, 1);
 	button(&btn_more, fe_auto_more ? "auto_more: on" : "auto_more: off", fe_auto_more);
 	if (dawn_tex)
-		button(&btn_set, use_dawn ? "Tile set: DawnHack" : "Tile set: Oryx", 0);
+		button(&btn_set, use_dawn ? "Tile set: DawnLike" : "Tile set: Oryx", 0);
 	button(&btn_tiles, "Tiles", tiles_mode);
 	button(&btn_text, "Text", !tiles_mode);
 }

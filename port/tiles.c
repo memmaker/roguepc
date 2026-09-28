@@ -99,12 +99,65 @@ ground(int y, int x)
 	return TL_PASSAGE;
 }
 
+/* DawnLike autotiles (RVIP-Finetuning): floor kind of a cell on the level
+   (chat(), not the player's view: a border is part of the terrain); walls,
+   secret doors (stored as wall) and rock have none; things lying there
+   count as the floor under them (a room's or a passage's) */
+enum { K_NONE, K_ROOM, K_CORR, K_DOOR };
+static int
+kind(int y, int x)
+{
+	byte c;
+
+	if (y < 1 || y >= maxrow || x < 0 || x >= COLS)
+		return K_NONE;
+	c = chat(y, x);
+	if (c == ' ' || c == VWALL || c == HWALL || c == ULWALL || c == URWALL || c == LLWALL || c == LRWALL)
+		return K_NONE;
+	if (c == DOOR) return K_DOOR;
+	if (c == PASSAGE) return K_CORR;
+	if (c == FLOOR) return K_ROOM;
+	return room_at(y, x) ? K_ROOM : K_CORR;
+}
+
+/* a plain floor or passage tile becomes the variant bordered on each side
+   whose neighbour is not the same floor (doors join rooms and passages) */
+static int
+autotile(int y, int x, int t)
+{
+	static const int dy[] = { -1, 1, 0, 0 }, dx[] = { 0, 0, -1, 1 };
+	int k, m = 0, i, n;
+
+	if (t != TL_FLOOR && t != TL_PASSAGE)
+		return t;
+	k = t == TL_PASSAGE ? K_CORR : chat(y, x) == DOOR ? K_DOOR : K_ROOM;
+	for (i = 0; i < 4; i++)
+	{
+		n = kind(y + dy[i], x + dx[i]);
+		if (n == K_NONE || (n != k && n != K_DOOR && k != K_DOOR))
+			m |= 8 >> i;
+	}
+	return (k == K_CORR ? TL_CORRS : TL_FLOORS) + m;
+}
+
+static int tile_at(int y, int x, byte ch, int *under);
+
 /*
  * Tile for the character ch shown at map position y,x; *under gets the
  * terrain to draw first (or -1). Returns -1 if the cell is drawn as text.
  */
 int
 tile_for(int y, int x, byte ch, int *under)
+{
+	int t = tile_at(y, x, ch, under);
+
+	if (*under >= 0)
+		*under = autotile(y, x, *under);
+	return t < 0 ? t : autotile(y, x, t);
+}
+
+static int
+tile_at(int y, int x, byte ch, int *under)
 {
 	THING *tp;
 	int t;
