@@ -235,7 +235,7 @@ inv_attr(THING *obj)
 /*
  * The inventory pane: one line per pack item, as the game names them;
  * worn and wielded ones bright white. With icons (a tile set is shown) the
- * row is "a)   name" and tiles[] gets the sprite for cols 2-4; without, it
+ * row is "a) name" and tiles[] gets its sprite (the page shows it first); without, it
  * is "a) ! name" with the item's own symbol and tiles[] is -1.
  */
 int
@@ -252,7 +252,7 @@ inv_lines(char lines[][81], byte attrs[], int tiles[], int max, int icons)
 	for (obj = pack; obj != NULL && n < max; obj = next(obj), ch++)
 	{
 		if (icons)
-			snprintf(lines[n], 81, "%c)   %s", ch, inv_name(obj, FALSE));
+			snprintf(lines[n], 81, "%c) %s", ch, inv_name(obj, FALSE));
 		else
 			snprintf(lines[n], 81, "%c) %c %s", ch, obj->o_type, inv_name(obj, FALSE));
 		tiles[n] = icons ? obj_tile(obj) : -1;

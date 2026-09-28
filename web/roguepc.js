@@ -34,7 +34,6 @@
 	var kind = 'text';                 /* what C sent last: 'text' or 'tiles' */
 	var F = null;                      /* last tiles frame */
 	var T = null;                      /* last text frame */
-	var hist = [];
 	var hero = { y: 0, x: 0 }, off = { x: 0, y: 0 }, lastLevel = -1;
 	var mapCv, mapCtx, mapPrev = null;
 
@@ -128,6 +127,7 @@
 	function tilesetChanged() {
 		var vb = $('vis');
 		if (vb._vis != null) { var v = vb._vis; vb._vis = null; RvipWM.visible(vb, v, visIcon); }
+		if (txt[P_INV]) for (var y = 0; y < txt[P_INV].n; y++) drawRow(P_INV, y);
 		if (atCmd && app.running) events.push(12);
 		applyDom();
 	}
@@ -151,27 +151,33 @@
 	}
 	/* a font from the index page's fonts/ (web/build.sh lists them in fonts.json) */
 	function loadFace(n, now) {
-		var redraw = function () { if (L && wm) applyDom(); };
+		var redraw = function () { if (L && wm) { applyFace(); applyDom(); } };
 		if (!n) { if (now) redraw(); return; }
 		var ff = new FontFace(n, 'url(../fonts/' + n + '.woff)');
 		ff.load().then(function () { document.fonts.add(ff); redraw(); }).catch(function () { status('Could not load the font ' + n + '.', true); });
 	}
-	/* a list icon (Inventory, Visible): the sprite at its own aspect ratio,
-	   side x side at most, centred in a w x h box at x,y */
-	function icon(ctx, t, x, y, w, h, side) {
-		var dw = side, dh = side;
-		if (!dawnOn() || !dawnHas[t]) dw = side * TW / TH;
-		ctx.imageSmoothingEnabled = false;
-		tile(ctx, t, tileCol[t], x + (w - dw) / 2, y + (h - dh) / 2, dw, dh);
-	}
-	/* Visible window icon: a 16px canvas, or null (the glyph is shown) */
+	/* list icon (Inventory, Visible): the sprite as a CSS sprite in a 16px box,
+	   at its own aspect ratio; null: no icon (the glyph is shown) */
+	var sheetUrl = [];
 	function visIcon(t) {
 		if (noTiles() || !(t >= 0) || !tileCol) return null;
-		var cv = document.createElement('canvas'), c;
-		cv.className = 'wm-ic'; cv.width = 16 * dpr; cv.height = 16 * dpr;
-		c = cv.getContext('2d'); c.scale(dpr, dpr);
-		icon(c, t, 0, 0, 16, 16, 16);
-		return cv;
+		var box = document.createElement('span'), e = document.createElement('span'), st = e.style, k;
+		box.className = 'wm-ic'; box.style.display = 'flex'; box.style.justifyContent = 'center';
+		st.height = '16px'; st.imageRendering = 'pixelated'; st.backgroundRepeat = 'no-repeat';
+		if (dawnOn() && dawnHas[t]) {
+			st.width = '16px'; st.backgroundImage = 'url(tiles-dawn.png)';
+			st.backgroundSize = dawn.naturalWidth + 'px ' + dawn.naturalHeight + 'px';
+			st.backgroundPosition = -(t & 31) * 16 + 'px ' + -(t >> 5) * 16 + 'px';
+		} else {
+			var c = tileCol[t], sh = tileSheets[c];
+			if (!sheetUrl[c]) sheetUrl[c] = sh.toDataURL();
+			k = 16 / TH;
+			st.width = TW * k + 'px'; st.backgroundImage = 'url(' + sheetUrl[c] + ')';
+			st.backgroundSize = sh.width * k + 'px ' + sh.height * k + 'px';
+			st.backgroundPosition = -(t & 31) * TW * k + 'px ' + -(t >> 5) * TH * k + 'px';
+		}
+		box.appendChild(e);
+		return box;
 	}
 	/* sprite t in CGA colour c, cell w x h */
 	function tile(ctx, t, c, x, y, w, h) {
@@ -228,82 +234,60 @@
 		textCv.style.height = Math.floor(400 * sc) + 'px';
 	}
 
-	/* ---------- tiles mode: text windows ---------- */
+	/* ---------- tiles mode: text windows (RVIP W0 rule 6) ----------
+	 * HTML lines from the game (port/fe_web.c): each changed row once, trimmed,
+	 * standout between \x01 and \x02, another colour between "\x05#rrggbb" and
+	 * \x06, the row's colour and icon tile, and the rows in use. The WM sets
+	 * the text size (A−/A+); the pop-up follows Messages. */
 	/* the chosen face for a pane: the map has its own (text mode only) */
 	function face(id) { var n = L && (id === 'map' ? L.mapFace : L.face); return n ? '"' + n + '", ' + FONT : FONT; }
-	function measure(px, id) {
-		var c = document.createElement('canvas').getContext('2d');
-		c.font = px + 'px ' + face(id);
-		return Math.ceil(c.measureText('M').width);
-	}
 	function cp(g) { return CP437.charAt(g); }
-
-	/* a canvas that fills its window's body */
-	function textPane(id) {
-		var r = rects[id], cv = document.querySelector('#t-' + id + ' canvas');
-		var w = Math.max(1, r[2] - BORDER), h = Math.max(1, r[3] - BORDER - ($('game').classList.contains('wm-single') ? 0 : TITLE_H));
-		cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
-		cv.style.width = w + 'px'; cv.style.height = h + 'px';
-		var c = cv.getContext('2d');
-		c.setTransform(dpr, 0, 0, dpr, 0, 0);
-		c.fillStyle = '#000'; c.fillRect(0, 0, w, h);
-		var f = RvipWM.fontSize(id);
-		c.font = f + 'px ' + face(id); c.textBaseline = 'middle';
-		return { c: c, w: w, h: h, cw: measure(f, id), ch: Math.round(f * 1.3) };
+	var P_STAT = 0, P_MSG = 1, P_INV = 2, P_POP = 3;
+	var PANE_EL = ['#t-stat .body pre', '#t-msg .body pre', '#t-inv .body', '#pop pre'];
+	var txt = [], cur = { p: -1, y: 0, x: 0 }, follow = null, popCol = 0, popRow = 0;
+	function textPane(p) {
+		var el = document.querySelector(PANE_EL[p]);
+		el.textContent = '';
+		txt[p] = { el: el, lines: [], css: [], tile: [], n: 0 };
 	}
-	/* one line of vram cells (attr << 8 | char) */
-	function cells(P, arr, start, n, y, x0) {
-		for (var i = 0; i < n; i++) {
-			var v = arr[start + i], a = v >> 8, g = v & 255, x = x0 + i * P.cw;
-			if ((a >> 4) & 7) { P.c.fillStyle = PAL[(a >> 4) & 7]; P.c.fillRect(x, y, P.cw, P.ch); }
-			if (g && g !== 32) { P.c.fillStyle = PAL[a & 15]; P.c.fillText(cp(g), x, y + P.ch / 2 + 1); }
-		}
-	}
-	function line(P, s, y, color) {
-		P.c.fillStyle = typeof color === 'string' ? color : PAL[color];
-		for (var i = 0; i < s.length; i++) P.c.fillText(s.charAt(i), 2 + i * P.cw, y + P.ch / 2 + 1);
-	}
-	function rowText(arr, r) {
-		var s = '';
-		for (var i = 0; i < 80; i++) s += cp(arr[r * 80 + i] & 255);
-		return s.replace(/\s+$/, '');
-	}
-
-	function drawMsg() {
-		if (!rects.msg) return;
-		var P = textPane('msg'), rows = Math.max(1, Math.floor(P.h / P.ch));
-		var lines = hist.map(function (s) { return { s: s, c: 7 }; });
-		if (lines.length) lines[lines.length - 1].c = 15;
-		/* the live message line: prompts, --More-- */
-		var live = F && !(F.pop && F.pop[0] === 0) ? rowText(F.vr, 0) : '';
-		RvipWM.prompt.text(live);      /* the prompt line over the map */
-		var last = hist.length ? hist[hist.length - 1] : '';
-		if (live && live.trim() !== last.trim()) lines.push({ s: live, c: 14, live: true });
-		lines = lines.slice(-rows);
-		lines.forEach(function (l, i) {
-			line(P, l.s, i * P.ch, l.c);
-			if (l.live && F.con && F.cr === 0 && curOn()) {
-				P.c.fillStyle = PAL[14];
-				P.c.fillRect(2 + F.cc * P.cw, i * P.ch + P.ch - 3, P.cw, 2);
+	function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
+	function rowHtml(p, y) {
+		var T = txt[p], s = T.lines[y] || '', cx = cur.p === p && cur.y === y ? cur.x : -1;
+		if (cx >= 0) {                              /* the cursor: one cell, past the end if need be */
+			var vis = s.replace(/\x05#[0-9a-f]{6}|[\x01\x02\x06]/g, '');
+			while (vis.length <= cx) { s += ' '; vis += ' '; }
+			for (var i = 0, k = 0; i < s.length; i++) {
+				if (s[i] === '\x05') { i += 7; continue; }
+				if (s[i] > '\x06' && k++ === cx) break;
 			}
-		});
+			s = s.slice(0, i) + '\x03' + s[i] + '\x04' + s.slice(i + 1);
+		}
+		return esc(s).replace(/\x01/g, '<span class="so">').replace(/[\x02\x04\x06]/g, '</span>')
+			.replace(/\x03/g, '<span class="cur">').replace(/\x05(#[0-9a-f]{6})/g, '<span style="color:$1">');
 	}
-	function drawStat() {
-		if (!rects.stat) return;
-		var P = textPane('stat');
-		if (!F) return;
-		cells(P, F.scr, 23 * 80, 80, 0, 2);
-		cells(P, F.scr, 24 * 80, 80, P.ch, 2);
+	function drawRow(p, y) {
+		var T = txt[p], d = T && T.el.children[y];
+		if (!d) return;
+		d.innerHTML = rowHtml(p, y);
+		d.style.color = T.css[y] || '';
+		if (p === P_INV) { var ic = visIcon(T.tile[y]); if (ic) d.insertBefore(ic, d.firstChild); }
 	}
-	function drawInv() {
-		if (!rects.inv) return;
-		var P = textPane('inv');
-		if (!F) return;
-		F.inv.forEach(function (l, i) {                                   /* colours from the game */
-			line(P, l.s, i * P.ch, l.c);
-			/* the game left cols 2-4 blank for the icon */
-			if (l.t >= 0 && !noTiles()) icon(P.c, l.t, 2 + 2 * P.cw, i * P.ch, 3 * P.cw, P.ch, Math.min(2 * P.cw, P.ch));
-		});
+	function setRows(p, n) {
+		var T = txt[p];
+		while (T.el.children.length < n) { T.el.appendChild(document.createElement('div')); drawRow(p, T.el.children.length - 1); }
+		while (T.el.children.length > n) T.el.removeChild(T.el.lastChild);
+		T.n = n;
+	}
+	function msgMark() {                          /* before a Messages change: was it at the end? */
+		var b = txt[P_MSG] && txt[P_MSG].el.parentNode;
+		if (b && follow == null) follow = b.scrollTop + b.clientHeight >= b.scrollHeight - 4;
+	}
+	function popFont() { $('pop').style.fontSize = RvipWM.fontSize('msg') + 'px'; placePop(); }
+	/* in the map body (never over its title bar), at the original's column */
+	function placePop() { if (!$('pop').hidden && rects.map && L) RvipWM.popup($('pop'), { x: Math.max(0, popCol * L.tile - Math.max(0, off.x)) }); }
+	/* the top-bar font on every text window and the pop-up */
+	function applyFace() {
+		['#t-stat .body', '#t-msg .body', '#t-inv .body', '#t-vis .body', '#pop'].forEach(function (q) { var e = document.querySelector(q); if (e) e.style.fontFamily = face('txt'); });
 	}
 
 	/* ---------- tiles mode: the map ---------- */
@@ -352,35 +336,9 @@
 			r[2] - BORDER, r[3] - BORDER - ($('game').classList.contains('wm-single') ? 0 : TITLE_H));
 	}
 
-	/* ---------- tiles mode: pop-up over the map ---------- */
-	function drawPop() {
-		var el = $('pop');
-		if (!F || !F.pop) { el.hidden = true; return; }
-		var p = F.pop, rows = p[2] - p[0] + 1, cols = p[3] - p[1] + 1;
-		var f = RvipWM.fontSize('msg') + 2, cw = measure(f, 'pop'), ch = Math.round(f * 1.3), pad = cw;
-		var w = cols * cw + 2 * pad, h = rows * ch + 2 * pad, cv = el.querySelector('canvas');
-		var A = RvipWM.popupBox(), sc = Math.min(1, (A.w - 2) / w, (A.h - 2) / h);   /* the map body's room (border: 2 px) */
-		cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
-		cv.style.width = w * sc + 'px'; cv.style.height = h * sc + 'px';
-		var c = cv.getContext('2d');
-		c.setTransform(dpr, 0, 0, dpr, 0, 0);
-		c.fillStyle = '#000'; c.fillRect(0, 0, w, h);
-		c.font = f + 'px ' + face('pop'); c.textBaseline = 'middle';
-		var P = { c: c, cw: cw, ch: ch };
-		for (var r = 0; r < rows; r++) cells(P, F.vr, (p[0] + r) * 80 + p[1], cols, pad + r * ch, pad);
-		if (F.con && F.cr >= p[0] && F.cr <= p[2] && curOn()) {
-			c.fillStyle = PAL[15];
-			c.fillRect(pad + (F.cc - p[1]) * cw, pad + (F.cr - p[0]) * ch + ch - 3, cw, 2);
-		}
-		el.pop = { r0: p[0], c0: p[1], sc: sc, cw: cw, ch: ch, pad: pad };
-		el.hidden = false;
-		/* in the map body (never over its title bar), at the original's column */
-		RvipWM.popup(el, { x: p[1] * L.tile - Math.max(0, off.x) });
-	}
-
 	function drawTiles(full) {
 		if (full) shapeMap();
-		drawMap(); drawMsg(); drawStat(); drawInv(); drawPop();
+		drawMap();
 	}
 
 	/* ---------- layout ---------- */
@@ -467,12 +425,12 @@
 				rects = r; rects.text = [0, 0, A.w, A.h];
 				$('t-text').hidden = !txt;
 				place($('t-text'), rects.text);
-				$('vis').style.fontFamily = L.face ? '"' + L.face + '", monospace' : '';
 				renderMapSel();
-				if (txt) { $('pop').hidden = true; fitText(); drawText(); }
-				else { drawTiles(true); scrollMap(true); drawPop(); }
+				if (txt) { $('pop').style.visibility = 'hidden'; fitText(); drawText(); }
+				else { $('pop').style.visibility = ''; drawTiles(true); scrollMap(true); placePop(); }
 			},
-			zoom: { map: function (s, d) { zoomMap(d); }, msg: applyDom, stat: applyDom, inv: applyDom },   /* map: tile size; text windows: redraw at the WM's size */
+			/* A- / A+: the map steps its tiles; the text windows are the WM's; the pop-up follows Messages */
+			zoom: { map: function (s, d) { zoomMap(d); }, msg: popFont },
 			onReset: resetLayout
 		});
 	}
@@ -487,7 +445,7 @@
 	function resetLayout() {
 		var fc = L.face, mf = L.mapFace, ts = L.tiles;
 		L = defaultLayout(); L.face = fc; L.mapFace = mf; L.tiles = ts; L.wm = wm.state();
-		applyDom(); saveLayout();
+		applyDom(); popFont(); saveLayout();
 	}
 
 	/* ---------- called by the game (port/fe_web.c) ---------- */
@@ -495,8 +453,9 @@
 		init: function (font, tiles, cols, ntiles, am) {
 			buildSheets(font, tiles, cols, ntiles);
 			if (!L) loadLayout();
+			[P_STAT, P_MSG, P_INV, P_POP].forEach(textPane);
 			$('game').hidden = false;
-			applyDom();
+			applyDom(); applyFace(); popFont();
 		},
 		text: function (scr, cr, cc, con, pic) {
 			T = { scr: Module.HEAPU16.slice(scr >> 1, (scr >> 1) + 2000), cr: cr, cc: cc, con: con,
@@ -504,34 +463,45 @@
 			if (kind !== 'text') { kind = 'text'; applyDom(); }
 			else drawText();
 		},
-		tiles: function (scr, vr, t, u, inv, at, it, ninv, pr0, pc0, pr1, pc1, cr, cc, con, hy, hx, lvl) {
-			var H = Module.HEAPU8, lines = [];
-			for (var i = 0; i < ninv; i++) {
-				var s = '', o = inv + i * 81;
-				while (H[o] && s.length < 80) s += cp(H[o++]);
-				lines.push({ s: s, c: H[at + i] & 15, t: Module.HEAP32[(it >> 2) + i] });
-			}
+		tiles: function (scr, vr, t, u, hy, hx, lvl) {
 			F = { scr: Module.HEAPU16.slice(scr >> 1, (scr >> 1) + 2000), vr: Module.HEAPU16.slice(vr >> 1, (vr >> 1) + 2000),
-				t: Module.HEAP32.slice(t >> 2, (t >> 2) + 1760), u: Module.HEAP32.slice(u >> 2, (u >> 2) + 1760),
-				inv: lines, pop: pr0 >= 0 ? [pr0, pc0, pr1, pc1] : null, cr: cr, cc: cc, con: con };
-			T = { scr: F.vr, cr: cr, cc: cc, con: con, pic: null };
+				t: Module.HEAP32.slice(t >> 2, (t >> 2) + 1760), u: Module.HEAP32.slice(u >> 2, (u >> 2) + 1760) };
+			T = { scr: F.vr, cr: -1, cc: 0, con: 0, pic: null };
+			var mb = txt[P_MSG] && txt[P_MSG].el.parentNode;   /* follow the newest message unless scrolled up */
+			if (mb && follow) mb.scrollTop = mb.scrollHeight;
+			follow = null;
 			var moved = hy !== hero.y || hx !== hero.x;
 			hero.y = hy; hero.x = hx;
 			if (kind !== 'tiles') { kind = 'tiles'; lastLevel = lvl; applyDom(); return; }
 			if (showText()) { drawText(); return; }
-			drawMap(); drawMsg(); drawStat(); drawInv(); drawPop();
+			drawMap();
 			if (moved || lvl !== lastLevel) scrollMap(lvl !== lastLevel);
+			placePop();
 			lastLevel = lvl;
+		},
+		line: function (p, y, s, c, t) {
+			var X = txt[p];
+			if (!X) return;
+			if (p === P_MSG) msgMark();
+			X.lines[y] = s; X.css[y] = c; X.tile[y] = t;
+			if (y < X.n) drawRow(p, y);
+		},
+		rows: function (p, n) { if (!txt[p]) return; if (p === P_MSG) msgMark(); setRows(p, n); },
+		cursor: function (p, y, x) {
+			var o = cur.p, oy = cur.y;
+			cur.p = p; cur.y = y; cur.x = x;
+			if (txt[o]) drawRow(o, oy);
+			if (txt[p]) drawRow(p, y);
+		},
+		popup: function (on, row, col) {
+			textPane(P_POP);
+			popRow = row; popCol = col;
+			$('pop').hidden = !on;
+			placePop();
 		},
 		vis: function (s) {
 			RvipWM.visible($('vis'), s.replace(/^([MI])([0-9a-f]{2})/gm, function (m, k, h) { return k + cp(parseInt(h, 16)); })
 				.replace(/\t(\d+)\t(-?\d+)$/gm, function (m, c, t) { return '\t' + PAL[+c] + '\t' + t; }), visIcon);
-		},
-		/* fold: the game folded a repeat into "message (xN)", replacing the last line */
-		msg: function (s, fold) {
-			if (fold && hist.length) { hist[hist.length - 1] = s; return; }
-			hist.push(s);
-			if (hist.length > 400) hist.shift();
 		},
 		toggle: function () { if (wm) wm.mode(wm.mode() === 'single' ? 'multi' : 'single'); },
 		icons: function () { return noTiles() ? 0 : 1; },
@@ -553,7 +523,6 @@
 	setInterval(function () {
 		if (!app.running || !L) return;
 		if (showText()) drawText();
-		else if (F && F.con) { if (F.cr === 0) drawMsg(); else if (F.pop) drawPop(); }
 	}, 115);
 
 	/* ---------- input ---------- */
@@ -660,11 +629,17 @@
 			var p = canvasXY(textCv, e);
 			click(Math.floor(p.y / p.h * 25), Math.floor(p.x / p.w * 80));
 		});
+		/* a click on a pop-up cell: its row, and the column from the font's width */
 		$('pop').addEventListener('mousedown', function (e) {
-			var P = this.pop, p = canvasXY(this.querySelector('canvas'), e);
-			if (P) click(P.r0 + Math.floor((p.y / P.sc - P.pad) / P.ch), P.c0 + Math.floor((p.x / P.sc - P.pad) / P.cw));
+			var pre = this.firstElementChild, d = e.target.closest && e.target.closest('#pop pre > div');
+			if (!d) return;
+			var m = document.createElement('span');
+			m.textContent = 'MMMMMMMMMM'; d.appendChild(m);
+			var cw = m.getBoundingClientRect().width / 10;
+			d.removeChild(m);
+			click(popRow + Array.prototype.indexOf.call(pre.children, d), popCol + Math.floor((e.clientX - d.getBoundingClientRect().left) / cw));
 		});
-		document.addEventListener('contextmenu', function (e) { if (app.running && e.target.tagName === 'CANVAS') { e.preventDefault(); events.push(27); } });
+		document.addEventListener('contextmenu', function (e) { if (app.running && (e.target.tagName === 'CANVAS' || (e.target.closest && e.target.closest('#pop')))) { e.preventDefault(); events.push(27); } });
 	});
 	var resizeTimer = 0;
 	window.addEventListener('resize', function () {
