@@ -200,7 +200,9 @@ send_visible(unsigned short (*scr)[80])
 				(scr[tp->t_pos.y][tp->t_pos.x] >> 8 & 15) ?: 7, icons ? t_mon[tp->t_type - 'A'] : -1);
 	for (tp = lvl_obj; tp != NULL && p < e; tp = next(tp))
 		if ((scr[tp->o_pos.y][tp->o_pos.x] & 0xff) == tp->o_type)
-			p += sprintf(p, "I%02x%.80s\t%d\t%d\n", tp->o_type, inv_name(tp, FALSE), obj_color(tp->o_type),
+			p += sprintf(p, "I%02x%.80s\t%d\t%d\n", tp->o_type,
+				tp->o_type == GOLD ? "gold" : inv_name(tp, FALSE),   /* inv_name has no GOLD case: it kept the last name */
+				obj_color(tp->o_type),
 				icons ? obj_tile(tp) : -1);
 	memcpy(prbuf, save, MAXSTR);
 	js_vis(vis);

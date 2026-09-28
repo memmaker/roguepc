@@ -340,7 +340,7 @@
 		var p = F.pop, rows = p[2] - p[0] + 1, cols = p[3] - p[1] + 1;
 		var f = RvipWM.fontSize('msg') + 2, cw = measure(f, 'pop'), ch = Math.round(f * 1.3), pad = cw;
 		var w = cols * cw + 2 * pad, h = rows * ch + 2 * pad, cv = el.querySelector('canvas');
-		var A = areaSize(), sc = Math.min(1, (A.w - 16) / w, (A.h - 16) / h);
+		var A = RvipWM.popupBox(), sc = Math.min(1, (A.w - 2) / w, (A.h - 2) / h);   /* the map body's room (border: 2 px) */
 		cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
 		cv.style.width = w * sc + 'px'; cv.style.height = h * sc + 'px';
 		var c = cv.getContext('2d');
@@ -353,12 +353,10 @@
 			c.fillStyle = PAL[15];
 			c.fillRect(pad + (F.cc - p[1]) * cw, pad + (F.cr - p[0]) * ch + ch - 3, cw, 2);
 		}
-		/* near where the original draws it, but inside the page */
-		var m = rects.map, x = m[0] + p[1] * L.tile - off.x, y = m[1] + Math.max(0, p[0] - 1) * cellH() - off.y;
-		el.style.left = clamp(x, 4, Math.max(4, A.w - w * sc - 4)) + 'px';
-		el.style.top = clamp(y, 4, Math.max(4, A.h - h * sc - 4)) + 'px';
 		el.pop = { r0: p[0], c0: p[1], sc: sc, cw: cw, ch: ch, pad: pad };
 		el.hidden = false;
+		/* in the map body (never over its title bar), at the original's column */
+		RvipWM.popup(el, { x: p[1] * L.tile - Math.max(0, off.x) });
 	}
 
 	function drawTiles(full) {
