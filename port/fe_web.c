@@ -336,7 +336,6 @@ static int map_t[22 * 80], map_u[22 * 80];
 static char inv[40][81];
 static unsigned char inv_at[40];
 static int inv_t[40];
-static unsigned char splash[320 * 200];
 static int splash_on;
 
 /* bounding box of what a full text screen (inventory, help) shows */
@@ -369,11 +368,58 @@ screen_bbox(int *r0, int *c0, int *r1, int *c1)
 	return any;
 }
 
-EM_JS(void, js_text, (const void *scr, int cr, int cc, int con, const void *pic),
-	{ Module.rp.text(scr, cr, cc, con, pic); });
-EM_JS(void, js_tiles, (const void *scr, const void *vr, const int *t, const int *u,
+EM_JS(void, js_text, (int cr, int cc, int con, int pic, const char *ccol),
+	{ Module.rp.text(cr, cc, con, pic, UTF8ToString(ccol)); });
+EM_JS(void, js_tiles, (const void *scr, const int *t, const int *u,
 	int hy, int hx, int lvl),
-	{ Module.rp.tiles(scr, vr, t, u, hy, hx, lvl); });
+	{ Module.rp.tiles(scr, t, u, hy, hx, lvl); });
+EM_JS(void, be_scr, (int y, const char *s), { Module.rp.scr(y, UTF8ToString(s)); });
+
+/* the PC screen (text mode, F12; RVIP W0 rule 6): 25 HTML lines in the VGA
+ * font, each sent once when it changes, trimmed; a run of cells in another
+ * attribute than 07 is "\x05[*]#fg[/#bg]" ... "\x06" (*: blink) */
+static void
+send_screen(unsigned short (*scr)[80])
+{
+	static char last[25][LW];
+	static int sent;
+	char buf[LW], *o;
+	int r, i, end, run;
+
+	for (r = 0; r < 25; r++)
+	{
+		unsigned short *v = scr[r];
+		for (end = 80; end > 0 && (v[end - 1] & 0xff) <= ' ' && !(v[end - 1] >> 12 & 7); end--)
+			;
+		o = buf;
+		run = 0x07;
+		for (i = 0; i < end; i++)
+		{
+			int a = v[i] >> 8, g = v[i] & 0xff;
+			if (a != run && !(g <= ' ' && !(a >> 4 & 7) && run != 0x07))
+			{
+				if (run != 0x07)
+					*o++ = 6;
+				if ((run = a) != 0x07)
+				{
+					o += sprintf(o, "\x05%s%s", a & 0x80 ? "*" : "", pal[a & 15]);
+					if (a >> 4 & 7)
+						o += sprintf(o, "/%s", pal[a >> 4 & 7]);
+				}
+			}
+			o = put_utf8(o, g ? cp437[g] : ' ');
+		}
+		if (run != 0x07)
+			*o++ = 6;
+		*o = 0;
+		if (!sent || strcmp(buf, last[r]))
+		{
+			strcpy(last[r], buf);
+			be_scr(r, buf);
+		}
+	}
+	sent = 1;
+}
 
 int obj_tile(THING *obj);
 
@@ -521,8 +567,9 @@ fe_present(void)
 	fe_init();
 	if (splash_on || curtain_down || !fe_ingame)
 	{
-		js_text(curtain_down ? curtain_vram : vram, cur_row, cur_col, cur_on,
-			splash_on ? splash : NULL);
+		unsigned short (*t)[80] = curtain_down ? curtain_vram : vram;
+		send_screen(t);
+		js_text(cur_row, cur_col, cur_on, splash_on, pal[(t[cur_row % 25][cur_col % 80] >> 8 & 15) ?: 7]);
 		return;
 	}
 	for (r = 1; r <= 22; r++)
@@ -547,7 +594,8 @@ fe_present(void)
 		r0 = -1;
 	send_visible(scr);
 	send_text(scr, r0, c0, r1, c1);
-	js_tiles(scr, vram, map_t, map_u, hero.y, hero.x, level);
+	send_screen(vram);
+	js_tiles(scr, map_t, map_u, hero.y, hero.x, level);
 }
 
 void
@@ -578,36 +626,21 @@ fe_toggle_mode(void)
 	js_toggle();
 }
 
-/* ---- CGA title picture: 2 bits per pixel, interlaced -------------------- */
+/* ---- CGA title picture: the page shows rogue-title.png (port/mkweb.py) -- */
 void
 fe_splash(const char *path)
 {
-	unsigned char data[7 + 16384];
 	char alt[64];
-	FILE *f;
-	int y, x;
+	FILE *f = NULL;
 
-	splash_on = 0;
 	if (path && !(f = fopen(path, "rb")))
 	{
 		snprintf(alt, sizeof alt, "/%s", path);	/* packaged with the game */
 		f = fopen(alt, "rb");
 	}
-	if (!path || !f)
-	{
-		fe_present();
-		return;
-	}
-	memset(data, 0, sizeof data);
-	fread(data, 1, sizeof data, f);
-	fclose(f);
-	for (y = 0; y < 200; y++)
-		for (x = 0; x < 320; x++)
-		{
-			unsigned char b = data[7 + (y & 1) * 8192 + (y / 2) * 80 + x / 4];
-			splash[y * 320 + x] = (b >> (6 - 2 * (x & 3))) & 3;
-		}
-	splash_on = 1;
+	if (f)
+		fclose(f);
+	splash_on = f != NULL;
 	fe_present();
 }
 

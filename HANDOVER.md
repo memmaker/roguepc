@@ -12,5 +12,8 @@
   `com_char()`), `js_key(fe_at_cmd)` in `port/fe_web.c`; `port/fe_web.c` sends
   the live message row (`be_prompt`). Text windows (W0 rule 6, 2026-09-28): Status,
   Messages, Inventory and the pop-up are HTML lines sent by `fe_web.c` (`be_line`/`be_rows`/
-  `be_cursor`/`be_popup`, message history kept in C); the only canvases are the map and
-  the text-mode VGA screen.
+  `be_cursor`/`be_popup`, message history kept in C); the only canvas is the map: the PC
+  screen (F12, WM window `text`, the one-window layout) is 25 HTML lines in the VGA woff
+  (`send_screen`, runs "\x05[*]#fg[/#bg]"…"\x06"), the title picture `rogue-title.png`,
+  list icons CSS sprites from `tiles-oryx.png` / `tiles-dawn.png`; `port/mkweb.py` makes
+  the PNGs and `tiles-web.json` (DawnLike slots, animated slots) at build time.

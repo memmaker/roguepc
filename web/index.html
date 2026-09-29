@@ -32,9 +32,23 @@
 		padding: 2px 10px; font: inherit; cursor: pointer; }
 	button:hover { border-color: var(--accent); }
 	button.on { background: var(--accent); color: #000; border-color: var(--accent); }
-	#t-text { background: #000; border: 0; align-items: center; justify-content: center; }
-	#t-text .body { display: flex; align-items: center; justify-content: center; width: 100%; }
-	#t-text canvas { image-rendering: pixelated; }
+	/* the PC screen (F12): 80x25 HTML lines in the VGA font, sized by the WM (A−/A+) */
+	@font-face { font-family: "RogueVGA"; src: url(../fonts/WebPlus_IBM_VGA_9x16.woff) format("woff"); }
+	#t-text .body { display: flex; background: #000; }
+	#t-text .scr { position: relative; flex: none; margin: auto; width: 80ch; height: 25em;
+		font-family: "RogueVGA", monospace; line-height: 1; }
+	#t-text pre { margin: 0; font: inherit; color: #aaaaaa; white-space: pre; }
+	#t-text pre > div { height: 1em; }
+	#t-text .bl { animation: bl .458s step-end infinite; }
+	@keyframes bl { 50% { color: transparent; } }
+	#t-cur { position: absolute; width: 1ch; height: .125em; animation: cur .23s step-end infinite; }
+	@keyframes cur { 50% { opacity: 0; } }
+	#t-title { position: absolute; top: 0; left: 5.5556%; width: 88.8889%; height: 100%; image-rendering: pixelated; }
+	#t-cur[hidden], #t-title[hidden] { display: none; }
+	#game.wm-single #t-text > .t { display: flex !important; }   /* its A−/A+ also in one-window mode */
+	#game.txt #t-text > .t { display: none !important; }
+	.wm-list .wm-ic.ic { width: auto; height: auto; min-width: 1.2em; display: flex; justify-content: center; }
+	.wm-ic.ic > span { display: block; image-rendering: pixelated; background-repeat: no-repeat; }
 	.win[hidden], .split[hidden] { display: none; }
 	#game.txt .win:not(#t-text), #game.txt .wm-bar { display: none !important; }
 	#status { position: fixed; left: 50%; top: 40px; transform: translateX(-50%); z-index: 5;
@@ -133,7 +147,7 @@
 	<div class="win" id="t-inv"><div class="t"><span class="name">Inventory</span></div><div class="body wm-list"></div></div>
 	<div class="win" id="t-vis"><div class="t"><span class="name">Visible</span></div><div class="body wm-list" id="vis"></div></div>
 	<div id="pop" hidden><pre class="txt"></pre></div>
-	<div class="win" id="t-text" hidden><div class="body"><canvas></canvas></div></div>
+	<div class="win" id="t-text"><div class="t"><span class="name">PC screen</span></div><div class="body"><div class="scr"><pre></pre><div id="t-cur" hidden></div><img id="t-title" src="rogue-title.png" alt="" hidden></div></div></div>
 </div>
 
 <div id="help" hidden>
